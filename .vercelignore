@@ -1,0 +1,7 @@
+node_modules
+.next
+models
+public/videos/*.mp4
+public/videos/dark/*.mp4
+.tmp*
+.git

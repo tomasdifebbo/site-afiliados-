@@ -51,3 +51,6 @@ models/
 # video generator
 .tmp_video*
 /public/videos/*.mp4
+
+.vercel
+.env*
