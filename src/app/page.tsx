@@ -125,9 +125,9 @@ export default async function Home() {
         <div
           style={{
             backgroundColor: "#fff",
-            padding: "1rem 1.25rem",
-            borderRadius: "4px",
-            marginBottom: "1.5rem",
+            padding: "0.75rem 0.85rem",
+            borderRadius: "6px",
+            marginBottom: "1rem",
             boxShadow: "0 1px 4px 0 rgba(0,0,0,0.05)",
           }}
         >
@@ -189,14 +189,7 @@ export default async function Home() {
         </div>
 
         {/* Vitrine Geral com Rolagem Infinita e Filtros Inteligentes */}
-        <div
-          style={{
-            backgroundColor: "#fff",
-            borderRadius: "4px",
-            padding: "1.5rem",
-            boxShadow: "0 1px 4px 0 rgba(0,0,0,0.05)",
-          }}
-        >
+        <div className="vitrine-wrapper">
           <div
             style={{
               display: "flex",

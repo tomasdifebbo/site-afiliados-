@@ -189,24 +189,13 @@ export default function InfiniteProductGrid({
   return (
     <div style={{ width: "100%" }}>
       {/* Barra de Filtros e Ordenação Inteligente */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "12px",
-          marginBottom: "1.75rem",
-          paddingBottom: "1rem",
-          borderBottom: "1px solid #f1f5f9",
-        }}
-      >
-        <div style={{ fontSize: "0.9rem", color: "#64748b", fontWeight: 600 }}>
+      <div className="product-filter-bar">
+        <div style={{ fontSize: "0.85rem", color: "#64748b", fontWeight: 600 }}>
           Mostrando <strong style={{ color: "#0f172a" }}>{products.length}</strong> de{" "}
           <strong style={{ color: "#0f172a" }}>{total.toLocaleString("pt-BR")}</strong> achadinhos
         </div>
 
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <div className="product-filter-pills">
           {[
             { id: "recent", label: "Recentes", icon: Sparkles },
             { id: "best_sales", label: "Mais Vendidos", icon: Flame },
@@ -223,10 +212,10 @@ export default function InfiniteProductGrid({
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 14px",
+                  gap: "5px",
+                  padding: "5px 12px",
                   borderRadius: "100px",
-                  fontSize: "0.82rem",
+                  fontSize: "0.78rem",
                   fontWeight: 700,
                   border: "1px solid",
                   borderColor: active ? "hsl(var(--primary))" : "#e2e8f0",
@@ -234,10 +223,12 @@ export default function InfiniteProductGrid({
                   color: active ? "#fff" : "#475569",
                   cursor: loading ? "not-allowed" : "pointer",
                   transition: "all 0.2s ease",
-                  boxShadow: active ? "0 4px 12px rgba(255,102,0,0.25)" : "none",
+                  boxShadow: active ? "0 3px 10px rgba(255,102,0,0.25)" : "none",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
-                <Icon size={14} />
+                <Icon size={13} />
                 {item.label}
               </button>
             );
@@ -281,41 +272,13 @@ export default function InfiniteProductGrid({
               />
 
               {/* Selo de Oferta */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "8px",
-                  left: "8px",
-                  backgroundColor: "hsl(var(--primary))",
-                  color: "#fff",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                  fontSize: "0.65rem",
-                  fontWeight: 900,
-                  letterSpacing: "0.5px",
-                  boxShadow: "0 4px 10px rgba(255,102,0,0.3)",
-                }}
-              >
+              <div className="product-card-badge-left">
                 OFERTA
               </div>
 
               {/* Selo de Desconto Oficial */}
               {product.discountRate ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "8px",
-                    right: "8px",
-                    backgroundColor: "#ef4444",
-                    color: "#fff",
-                    padding: "3px 8px",
-                    borderRadius: "6px",
-                    fontSize: "0.65rem",
-                    fontWeight: 900,
-                    letterSpacing: "0.5px",
-                    boxShadow: "0 4px 10px rgba(239,68,68,0.35)",
-                  }}
-                >
+                <div className="product-card-badge-right">
                   -{product.discountRate}% OFF
                 </div>
               ) : null}
@@ -323,15 +286,19 @@ export default function InfiniteProductGrid({
 
             {/* Info */}
             <div className="product-card-body">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem", gap: "4px" }}>
                 {product.category?.name ? (
                   <span
                     style={{
-                      fontSize: "0.7rem",
+                      fontSize: "0.65rem",
                       color: "hsl(var(--muted-foreground))",
                       textTransform: "uppercase",
                       letterSpacing: "0.5px",
                       fontWeight: 800,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: "70%",
                     }}
                   >
                     {product.category.name}
@@ -345,15 +312,16 @@ export default function InfiniteProductGrid({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: "2px",
-                      fontSize: "0.75rem",
+                      fontSize: "0.7rem",
                       fontWeight: 800,
                       color: "#b45309",
                       backgroundColor: "#fef3c7",
-                      padding: "2px 6px",
-                      borderRadius: "6px",
+                      padding: "1px 5px",
+                      borderRadius: "4px",
+                      flexShrink: 0,
                     }}
                   >
-                    <Star size={11} fill="#f59e0b" color="#f59e0b" />
+                    <Star size={10} fill="#f59e0b" color="#f59e0b" />
                     {product.ratingStar.toFixed(1)}
                   </span>
                 ) : null}
@@ -371,15 +339,18 @@ export default function InfiniteProductGrid({
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "4px",
-                    fontSize: "0.72rem",
+                    gap: "3px",
+                    fontSize: "0.68rem",
                     fontWeight: 700,
                     color: "#ea580c",
-                    marginBottom: "0.4rem",
+                    marginBottom: "0.35rem",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
-                  <Flame size={12} />
-                  <span>{formatSales(product.sales)} vendidos na Shopee</span>
+                  <Flame size={11} style={{ flexShrink: 0 }} />
+                  <span>{formatSales(product.sales)} vendidos</span>
                 </div>
               ) : null}
 

@@ -29,7 +29,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   if (!product) notFound();
 
   return (
-    <div className="container" style={{ padding: '3rem 1.5rem 6rem' }}>
+    <div className="container page-container">
       <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'hsl(var(--muted-foreground))', marginBottom: '2rem', fontWeight: 500 }}>
         <ArrowLeft size={18} /> Voltar para o Início
       </a>

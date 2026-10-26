@@ -34,7 +34,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   ]);
 
   return (
-    <div className="container" style={{ padding: "3rem 1.5rem 6rem" }}>
+    <div className="container page-container">
       {/* Breadcrumbs */}
       <nav
         style={{

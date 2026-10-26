@@ -98,22 +98,14 @@ export function ShopeeFlashDeals({ products }: ShopeeFlashDealsProps) {
       }}
     >
       {/* Header Ofertas Relâmpago Clone Shopee */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "1rem 1.25rem",
-          borderBottom: "1px solid #f2f2f2",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <div className="flash-deals-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <span
               style={{
                 color: "#ee4d2d",
                 fontWeight: 900,
-                fontSize: "1.25rem",
+                fontSize: "1.1rem",
                 letterSpacing: "-0.5px",
                 textTransform: "uppercase",
                 fontFamily: "var(--font-outfit), sans-serif",
@@ -126,8 +118,8 @@ export function ShopeeFlashDeals({ products }: ShopeeFlashDealsProps) {
                 backgroundColor: "#ee4d2d",
                 color: "#fff",
                 fontWeight: 900,
-                fontSize: "0.85rem",
-                padding: "1px 6px",
+                fontSize: "0.8rem",
+                padding: "1px 5px",
                 borderRadius: "3px",
               }}
             >
@@ -137,7 +129,7 @@ export function ShopeeFlashDeals({ products }: ShopeeFlashDealsProps) {
               style={{
                 color: "#ee4d2d",
                 fontWeight: 900,
-                fontSize: "1.25rem",
+                fontSize: "1.1rem",
                 letterSpacing: "-0.5px",
                 textTransform: "uppercase",
                 fontFamily: "var(--font-outfit), sans-serif",
@@ -298,18 +290,7 @@ export function ShopeeFlashDeals({ products }: ShopeeFlashDealsProps) {
                 href={`/go/${item.slug}?origin=flash_deals`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  flex: "0 0 176px",
-                  display: "flex",
-                  flexDirection: "column",
-                  textDecoration: "none",
-                  color: "inherit",
-                  position: "relative",
-                  backgroundColor: "#fff",
-                  borderRadius: "4px",
-                  overflow: "hidden",
-                  transition: "transform 0.15s ease",
-                }}
+                className="flash-deal-card"
               >
                 {/* Imagem com Selos Clone Shopee */}
                 <div style={{ position: "relative", width: "100%", aspectRatio: "1/1", backgroundColor: "#f9fafb" }}>
