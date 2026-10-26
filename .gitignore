@@ -45,7 +45,9 @@ next-env.d.ts
 # database backups
 /prisma/backups
 
-# video generator and models
-.tmp*
+# models & voice AI
+models/
+
+# video generator
+.tmp_video*
 /public/videos/*.mp4
-/models/

@@ -4,12 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^1.0.13",
     "@prisma/client": "^6.19.2",
     "clsx": "^2.1.1",
     "lucide-react": "^1.0.1",
@@ -17,15 +17,17 @@
     "prisma": "^6.19.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "sharp": "^0.35.5",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
+    "prisma": "^6.19.2",
+    "sharp": "^0.35.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5"
