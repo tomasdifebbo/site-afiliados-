@@ -181,6 +181,11 @@ export default function InfiniteProductGrid({
     return `${count}`;
   };
 
+  const formatBRL = (val?: number | null) => {
+    if (val == null || val <= 0) return null;
+    return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   return (
     <div style={{ width: "100%" }}>
       {/* Barra de Filtros e Ordenação Inteligente */}
@@ -379,12 +384,23 @@ export default function InfiniteProductGrid({
               ) : null}
 
               <div className="product-card-bottom">
-                <div>
-                  <span style={{ fontSize: "0.68rem", color: "#666", fontWeight: 600, display: "block" }}>
-                    Melhor Preço
-                  </span>
+                <div className="product-card-price-block">
+                  {product.discountRate && product.discountRate > 0 && product.price ? (
+                    <span className="product-card-old-price">
+                      R$ {formatBRL(product.price / (1 - product.discountRate / 100))}
+                    </span>
+                  ) : (
+                    <span className="product-card-price-label">Melhor Preço</span>
+                  )}
                   <div className="product-card-price">
-                    {product.price && product.price > 0 ? `R$ ${product.price.toFixed(2)}` : "Ver preço"}
+                    {product.price && product.price > 0 ? (
+                      <>
+                        <span className="product-card-currency">R$</span>
+                        <span>{formatBRL(product.price)}</span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: "0.95rem" }}>Ver Preço</span>
+                    )}
                   </div>
                 </div>
 

@@ -88,7 +88,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <div style={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', padding: '1.5rem', borderRadius: '16px', flex: 1 }}>
               <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.9rem' }}>Melhor oferta hoje:</span>
               <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
-                R$ {product.price ? product.price.toFixed(2) : "Ver na loja"}
+                {product.price ? `R$ ${product.price.toFixed(2).replace('.', ',')}` : "Ver na loja"}
               </div>
               {product.priceUpdatedAt && (
                 <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>

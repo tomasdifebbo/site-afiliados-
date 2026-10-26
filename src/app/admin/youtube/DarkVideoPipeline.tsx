@@ -60,6 +60,8 @@ export function DarkVideoPipeline() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [syncingFlash, setSyncingFlash] = useState(false);
 
+  const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+
   const handleSyncLiveFlashDeals = async () => {
     const inputUrl = prompt(
       "Cole o link da página de Ofertas Relâmpago da Shopee (ou deixe vazio para puxar a sessão ao vivo de agora):",
@@ -104,6 +106,10 @@ export function DarkVideoPipeline() {
 
   // Processa um vídeo específico ou o próximo da fila
   const handleProcessVideo = async (id?: string) => {
+    if (isCloud) {
+      alert("A renderização de vídeos com FFmpeg e voz neural roda no seu computador local em http://localhost:3000/admin/youtube para usar o processador da sua máquina com taxa de renderização ultrarrápida e custo zero. Aqui na nuvem, você pode adicionar produtos à esteira e sincronizar ofertas!");
+      return;
+    }
     setIsProcessing(true);
     try {
       const res = await fetch("/api/admin/dark-video/process", {

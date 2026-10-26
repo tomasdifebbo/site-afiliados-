@@ -33,8 +33,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nenhum produto encontrado para compor o Shorts." }, { status: 400 });
     }
 
+    // No Vercel, o sistema de arquivos da função lambda é estritamente somente leitura
+    // e os binários nativos FFmpeg e Piper TTS executam no computador local do operador.
+    if (process.env.VERCEL) {
+      return NextResponse.json(
+        {
+          error:
+            "A renderização de Shorts verticais com FFmpeg e voz neural roda no seu computador local (http://localhost:3000/admin/youtube) para utilizar o processador da sua máquina com performance máxima e custo zero. Aqui na nuvem, você pode gerar roteiros, descrições e tags livremente!",
+        },
+        { status: 400 }
+      );
+    }
+
     const publicVideosDir = join(process.cwd(), "public", "videos");
-    if (!existsSync(publicVideosDir)) mkdirSync(publicVideosDir, { recursive: true });
+    try {
+      if (!existsSync(publicVideosDir)) mkdirSync(publicVideosDir, { recursive: true });
+    } catch (fsErr: any) {
+      console.warn("Aviso ao criar diretório public/videos:", fsErr.message);
+    }
 
     const rawSlug = product.slug || product.name || "shorts-achadinho";
     const safeSlug = "shorts-" + rawSlug

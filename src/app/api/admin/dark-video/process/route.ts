@@ -136,9 +136,33 @@ export async function POST(req: NextRequest) {
       categoryName: item.categoryName,
     });
 
+    // No Vercel, o sistema de arquivos lambda é somente leitura e não possui FFmpeg/Piper instalados.
+    // Salvamos o roteiro e legenda humanizada e notificamos o usuário.
+    if (process.env.VERCEL) {
+      await prisma.darkVideo.update({
+        where: { id: item.id },
+        data: {
+          status: "novo",
+          scriptText: script,
+          captionText: caption,
+        },
+      });
+      return NextResponse.json(
+        {
+          error:
+            "A renderização do arquivo MP4 com FFmpeg e voz neural roda no seu computador local em http://localhost:3000/admin/youtube. O roteiro e legendas já foram gerados e sincronizados com sucesso!",
+        },
+        { status: 400 }
+      );
+    }
+
     // 4. Prepara diretório de saída
     const publicVideosDarkDir = join(process.cwd(), "public", "videos", "dark");
-    if (!existsSync(publicVideosDarkDir)) mkdirSync(publicVideosDarkDir, { recursive: true });
+    try {
+      if (!existsSync(publicVideosDarkDir)) mkdirSync(publicVideosDarkDir, { recursive: true });
+    } catch (fsErr: any) {
+      console.warn("Aviso ao criar diretório public/videos/dark:", fsErr.message);
+    }
 
     const safeSlug = shortName
       .toLowerCase()

@@ -69,6 +69,8 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
   const [shortsResults, setShortsResults] = useState<{ [index: number]: { videoUrl: string; filename: string } }>({});
   const [shortsModal, setShortsModal] = useState<{ videoUrl: string; filename: string; productName: string } | null>(null);
 
+  const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+
   async function handleGenerate() {
     setLoading(true);
     setError("");
@@ -107,6 +109,10 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
 
   async function handleGenerateVideo() {
     if (!result) return;
+    if (isCloud) {
+      setVideoError("A renderização de vídeos com FFmpeg e voz neural roda no seu computador local (http://localhost:3000/admin/youtube) para utilizar o processador da sua máquina com performance máxima e custo zero. Aqui na nuvem, você pode gerar roteiros, descrições e tags livremente!");
+      return;
+    }
     setGeneratingVideo(true);
     setVideoError("");
 
@@ -135,6 +141,10 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
   }
 
   async function handleGenerateShorts(product: any, index: number) {
+    if (isCloud) {
+      setVideoError("A renderização de Shorts verticais com FFmpeg e voz neural roda no seu computador local (http://localhost:3000/admin/youtube) para utilizar o processador da sua máquina com performance máxima e custo zero. Aqui na nuvem, você pode gerar roteiros, descrições e tags livremente!");
+      return;
+    }
     setGeneratingShortsIndex(index);
     setVideoError("");
 
@@ -171,7 +181,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
   return (
     <div style={{ padding: "3rem", color: "#000" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "2.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "1.5rem" }}>
         <div style={{ width: "52px", height: "52px", borderRadius: "16px", background: "linear-gradient(135deg,#FF5722,#FF7A00)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Video size={28} color="#fff" />
         </div>
@@ -184,6 +194,30 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
           </p>
         </div>
       </div>
+
+      {isCloud && (
+        <div style={{
+          background: "linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)",
+          border: "1px solid #fef08a",
+          borderRadius: "16px",
+          padding: "1rem 1.4rem",
+          marginBottom: "2rem",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "12px",
+          color: "#854d0e"
+        }}>
+          <span style={{ fontSize: "1.5rem", lineHeight: 1 }}>☁️</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "4px" }}>
+              Modo Nuvem (Vercel) Ativo
+            </div>
+            <div style={{ fontSize: "0.85rem", color: "#713f12", lineHeight: 1.5 }}>
+              A geração de roteiros humanos, descrições para YouTube, tags de ranqueamento e esteira de links Shopee funcionam 100% online. Para <strong>renderizar os arquivos de vídeo MP4</strong> com narração neural ultra-rápida (Piper TTS + FFmpeg a R$ 0), utilize o painel no seu computador local em <code>http://localhost:3000/admin/youtube</code>.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Switcher de Seções: Esteira Dark vs Vídeo 16:9 */}
       <div style={{ display: "flex", gap: "10px", marginBottom: "2rem", background: "#f8fafc", padding: "6px", borderRadius: "18px", border: "1px solid #e2e8f0", width: "fit-content" }}>
