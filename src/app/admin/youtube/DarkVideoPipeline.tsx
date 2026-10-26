@@ -59,8 +59,35 @@ export function DarkVideoPipeline() {
   const [selectedVideo, setSelectedVideo] = useState<DarkVideoItem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [syncingFlash, setSyncingFlash] = useState(false);
+  const [generatingAiId, setGeneratingAiId] = useState<string | null>(null);
 
   const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+
+  const handleGenerateGeminiScript = async (id: string) => {
+    try {
+      setGeneratingAiId(id);
+      const res = await fetch("/api/admin/dark-video/generate-script", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar roteiro");
+      await fetchQueue();
+      if (selectedVideo && selectedVideo.id === id) {
+        setSelectedVideo((prev: any) => ({
+          ...prev,
+          scriptText: data.script,
+          captionText: data.caption,
+        }));
+      }
+      alert("✨ Roteiro e legenda gerados com sucesso pelo Google Gemini AI!");
+    } catch (e: any) {
+      alert("Erro ao chamar Gemini: " + e.message);
+    } finally {
+      setGeneratingAiId(null);
+    }
+  };
 
   const handleSyncLiveFlashDeals = async () => {
     const inputUrl = prompt(
@@ -249,8 +276,13 @@ export function DarkVideoPipeline() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1.5rem" }}>
           <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(255, 87, 34, 0.15)", border: "1px solid rgba(255,87,34,0.4)", padding: "4px 12px", borderRadius: "100px", color: "#FF7A00", fontWeight: 800, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>
-              <Sparkles size={14} /> Esteira de Vídeos Dark • 100% Grátis (R$ 0)
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(255, 87, 34, 0.15)", border: "1px solid rgba(255,87,34,0.4)", padding: "4px 12px", borderRadius: "100px", color: "#FF7A00", fontWeight: 800, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                <Sparkles size={14} /> Esteira de Vídeos Dark • 100% Grátis (R$ 0)
+              </div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(59, 130, 246, 0.2)", border: "1px solid rgba(59, 130, 246, 0.4)", padding: "4px 12px", borderRadius: "100px", color: "#60a5fa", fontWeight: 800, fontSize: "0.78rem" }}>
+                <Sparkles size={13} /> ✨ Roteiros IA via Google Gemini Ativo
+              </div>
             </div>
             <h2 style={{ fontSize: "1.75rem", fontWeight: 900, margin: "0 0 8px 0", color: "#ffffff", letterSpacing: "-0.02em" }}>
               Fábrica Automática de Shorts & Reels
@@ -471,6 +503,22 @@ export function DarkVideoPipeline() {
 
                 {/* Ações do Card */}
                 <div style={{ padding: "1rem 1.25rem", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                  {/* Botão Gerar Roteiro com Gemini AI */}
+                  <button
+                    onClick={() => handleGenerateGeminiScript(item.id)}
+                    disabled={generatingAiId === item.id}
+                    style={{
+                      flex: 1, padding: "8px 14px", borderRadius: "10px", border: "none",
+                      background: generatingAiId === item.id ? "#64748b" : "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff",
+                      fontWeight: 800, fontSize: "0.82rem", cursor: generatingAiId === item.id ? "not-allowed" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                      boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)"
+                    }}
+                  >
+                    <Sparkles size={14} className={generatingAiId === item.id ? "animate-spin" : ""} />
+                    {generatingAiId === item.id ? "Gemini gerando..." : "✨ Roteiro IA"}
+                  </button>
+
                   {item.status === "novo" && (
                     <button
                       onClick={() => handleProcessVideo(item.id)}

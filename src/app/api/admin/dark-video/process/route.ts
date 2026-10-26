@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { spawn, execSync } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "fs";
 import { join } from "path";
+import { generateProductScriptWithGemini } from "@/lib/geminiScriptGenerator";
 
 // ── Funções de Roteiro e Legenda Humanizados ──────────────────────────────────
 function generateDarkScript(product: { name: string; price?: number | null; categoryName?: string | null }) {
@@ -129,12 +130,26 @@ export async function POST(req: NextRequest) {
       data: { status: "renderizando" },
     });
 
-    // 3. Gera Roteiro e Legenda
-    const { script, caption, shortName } = generateDarkScript({
-      name: item.productName,
-      price: item.price,
-      categoryName: item.categoryName,
-    });
+    // 3. Gera Roteiro e Legenda com Gemini AI (com fallback automático)
+    let script = item.scriptText;
+    let caption = item.captionText;
+    let shortName = item.productName
+      .replace(/^(kit \d+x?|par de|jogo de|mini|super)\s+/i, "")
+      .split(/[-,|]/)[0]
+      .trim()
+      .slice(0, 45);
+
+    if (!script || !caption) {
+      const generated = await generateProductScriptWithGemini({
+        name: item.productName,
+        price: item.price,
+        categoryName: item.categoryName,
+        apiKey: body.apiKey,
+      });
+      script = generated.script;
+      caption = generated.caption;
+      shortName = generated.shortName;
+    }
 
     // No Vercel, o sistema de arquivos lambda é somente leitura e não possui FFmpeg/Piper instalados.
     // Salvamos o roteiro e legenda humanizada e notificamos o usuário.
@@ -150,7 +165,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "A renderização do arquivo MP4 com FFmpeg e voz neural roda no seu computador local em http://localhost:3000/admin/youtube. O roteiro e legendas já foram gerados e sincronizados com sucesso!",
+            "A renderização do arquivo MP4 com FFmpeg e voz neural roda no seu computador local em http://localhost:3000/admin/youtube. O roteiro exclusivo e legendas com Gemini AI já foram gerados com sucesso!",
         },
         { status: 400 }
       );
