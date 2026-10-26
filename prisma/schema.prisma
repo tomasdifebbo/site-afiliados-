@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Category {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  imageUrl      String?
+  affiliateLink String?
+  products      Product[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String
+  price         Float?
+  affiliateLink String
+  imageUrl      String
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  isFeatured    Boolean  @default(false)
+  // Shopee Open API metadata (optional: legacy products may not have it)
+  itemId         String?   @unique
+  shopId         String?
+  commissionRate Float?
+  sales          Int?
+  ratingStar     Float?
+  discountRate   Int?
+  priceUpdatedAt DateTime?
+  clicks        Click[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  content   String
+  excerpt   String
+  imageUrl  String
+  author    String   @default("Equipe Achadinhos")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Click {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  origin    String?  // e.g. "home", "category", "blog"
+  device    String?  // e.g. "mobile", "desktop"
+  timestamp DateTime @default(now())
+}
+
+model DarkVideo {
+  id              String   @id @default(cuid())
+  productId       String?
+  productName     String
+  categoryName    String?
+  price           Float?
+  affiliateLink   String?
+  imageUrl        String?
+  scriptText      String?
+  captionText     String?
+  videoUrl        String?
+  durationSeconds Float?
+  status          String   @default("novo") // "novo" | "renderizando" | "em_revisao" | "aprovado" | "rejeitado"
+  qualityAudit    String?  // JSON string com auditoria tecnica
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
