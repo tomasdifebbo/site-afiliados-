@@ -9,20 +9,29 @@ import { execSync, spawn } from 'child_process';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
 // ── Caminhos e Configuração ────────────────────────────────────────────────────
+const localAppData = process.env.LOCALAPPDATA || '';
+const userProfile = process.env.USERPROFILE || '';
+
 const FFMPEG_PATHS = [
   process.env.FFMPEG_PATH,
+  ffmpegInstaller?.path,
   'ffmpeg',
-  'C:/Users/TOMAS/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.2-full_build/bin/ffmpeg.exe',
+  localAppData ? join(localAppData, 'Microsoft/WinGet/Links/ffmpeg.exe') : null,
+  'C:/Program Files/ffmpeg/bin/ffmpeg.exe',
+  'C:/ffmpeg/bin/ffmpeg.exe',
 ].filter(Boolean);
 
 const PIPER_PATHS = [
   process.env.PIPER_PATH,
-  'C:/Users/TOMAS/AppData/Roaming/Python/Python314/Scripts/piper.exe',
+  userProfile ? join(userProfile, 'AppData/Roaming/Python/Python314/Scripts/piper.exe') : null,
+  userProfile ? join(userProfile, 'AppData/Roaming/Python/Python312/Scripts/piper.exe') : null,
   'piper',
 ].filter(Boolean);
 
@@ -36,6 +45,23 @@ export function findFFmpeg() {
     } catch {}
   }
   throw new Error('FFmpeg não encontrado.');
+}
+
+export function findFFprobe() {
+  const probeCandidates = [
+    process.env.FFPROBE_PATH,
+    ffprobeInstaller?.path,
+    'ffprobe',
+    localAppData ? join(localAppData, 'Microsoft/WinGet/Links/ffprobe.exe') : null,
+  ].filter(Boolean);
+
+  for (const p of probeCandidates) {
+    try {
+      execSync(`"${p}" -version`, { stdio: 'ignore' });
+      return p;
+    } catch {}
+  }
+  return null;
 }
 
 export function findPiper() {
@@ -400,6 +426,113 @@ export function renderShortsFrame(product, progress = 0) {
   return canvas;
 }
 
+export function renderShortsOverlay(product) {
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+
+  // Badge Superior Shopee
+  const badgeY = 130;
+  const badgeH = 68;
+  const badgeW = 680;
+  const badgeX = (W - badgeW) / 2;
+
+  // Sombra suave do badge
+  ctx.fillStyle = 'rgba(255, 87, 34, 0.25)';
+  roundRect(ctx, badgeX - 4, badgeY - 2, badgeW + 8, badgeH + 4, 34);
+  ctx.fill();
+
+  // Fundo gradiente do badge
+  ctx.fillStyle = ORANGE;
+  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 34);
+  ctx.fill();
+
+  ctx.font = '900 28px sans-serif';
+  ctx.fillStyle = WHITE;
+  ctx.textAlign = 'center';
+  ctx.fillText('ACHADINHO VIRAL DA SHOPEE', W / 2, badgeY + 44);
+  ctx.textAlign = 'left';
+
+  // Tag "Oferta Shopee" sobre a área do vídeo
+  const cardX = 80;
+  const cardY = 240;
+  ctx.fillStyle = '#FF4713';
+  roundRect(ctx, cardX + 36, cardY + 36, 190, 48, 12);
+  ctx.fill();
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillStyle = WHITE;
+  ctx.fillText('Oferta Shopee', cardX + 54, cardY + 68);
+
+  // Moldura sutil elegante ao redor do vídeo
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 4;
+  roundRect(ctx, cardX, cardY, 920, 980, 28);
+  ctx.stroke();
+
+  // Informações do Produto (Abaixo do Card)
+  const infoX = 80;
+  let curY = 1270;
+
+  const rating = product.ratingStar ? product.ratingStar.toFixed(1) : '4.9';
+  const sales = product.sales || 1500;
+  const salesStr = sales >= 1000 ? `${Math.floor(sales / 1000)} mil` : `${sales}`;
+
+  ctx.font = 'bold 30px sans-serif';
+  ctx.fillStyle = STAR_GOLD;
+  ctx.fillText(`★ ${rating}`, infoX, curY);
+
+  ctx.fillStyle = MUTED;
+  ctx.fillText(` ·  mais de ${salesStr} vendas na Shopee`, infoX + 90, curY);
+  curY += 60;
+
+  ctx.font = '800 46px sans-serif';
+  ctx.fillStyle = WHITE;
+  curY = wrapText(ctx, product.name || 'Achadinho Incrível', infoX, curY, 920, 56, 2) + 25;
+
+  const priceNum = Number(product.price || 0);
+  const priceStr = `R$ ${priceNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  ctx.font = '900 80px sans-serif';
+  ctx.fillStyle = ORANGE;
+  ctx.fillText(priceStr, infoX, curY + 65);
+
+  const priceWidth = ctx.measureText(priceStr).width;
+  const discountPct = product.discount || product.discountRate;
+  if (discountPct) {
+    const badgeOffX = infoX + priceWidth + 24;
+    const badgeOffY = curY + 65 - 54;
+    ctx.fillStyle = '#DC2626';
+    roundRect(ctx, badgeOffX, badgeOffY, 150, 48, 12);
+    ctx.fill();
+
+    ctx.font = 'bold 26px sans-serif';
+    ctx.fillStyle = WHITE;
+    ctx.textAlign = 'center';
+    ctx.fillText(`-${discountPct}%`, badgeOffX + 75, badgeOffY + 34);
+    ctx.textAlign = 'left';
+  }
+
+  // CTA
+  const ctaY = 1680;
+  const ctaW = 920;
+  const ctaH = 96;
+
+  ctx.fillStyle = 'rgba(255, 87, 34, 0.35)';
+  roundRect(ctx, infoX - 4, ctaY - 4, ctaW + 8, ctaH + 8, 48);
+  ctx.fill();
+
+  ctx.fillStyle = WHITE;
+  roundRect(ctx, infoX, ctaY, ctaW, ctaH, 48);
+  ctx.fill();
+
+  ctx.font = '900 34px sans-serif';
+  ctx.fillStyle = '#0f172a';
+  ctx.textAlign = 'center';
+  ctx.fillText('LINK NO 1º COMENTÁRIO E NA BIO', W / 2, ctaY + 60);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
+
 // ── Pipeline Principal de Geração de Shorts ────────────────────────────────────
 
 export async function generateShorts({
@@ -457,60 +590,143 @@ export async function generateShorts({
     audioPath = paddedWav;
   }
 
-  // 2. Renderizar frames verticais 9:16 (30 FPS)
-  const totalFrames = Math.round(totalDuration * FPS);
-  onProgress?.(`Renderizando ${totalFrames} frames verticais (1080x1920)...`);
-
-  for (let f = 0; f < totalFrames; f++) {
-    const progress = f / totalFrames;
-    const canvas = renderShortsFrame(product, progress);
-    const framePath = join(tmpDir, `frame_${String(f).padStart(5, '0')}.jpg`);
-    // JPEG com qualidade 90: ~10x mais rápido que PNG e 90% menos uso de disco
-    writeFileSync(framePath, canvas.toBuffer('image/jpeg', { quality: 90 }));
-
-    if (f % 60 === 0) {
-      onProgress?.(`Renderizados ${f}/${totalFrames} frames...`);
+  // 2. Verificar se há vídeo real do vendedor Shopee disponível
+  let sellerLocalPath = null;
+  if (product.sellerVideoUrl && typeof product.sellerVideoUrl === 'string' && product.sellerVideoUrl.startsWith('http')) {
+    onProgress?.('Baixando vídeo real do vendedor da Shopee...');
+    try {
+      const vidRes = await fetch(product.sellerVideoUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Referer': 'https://shopee.com.br/',
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+      if (vidRes.ok) {
+        const vPath = join(tmpDir, 'seller_source.mp4');
+        const vBuf = Buffer.from(await vidRes.arrayBuffer());
+        if (vBuf.length > 50000) {
+          writeFileSync(vPath, vBuf);
+          sellerLocalPath = vPath;
+          onProgress?.('✅ Vídeo do vendedor baixado com sucesso!');
+        }
+      }
+    } catch (err) {
+      console.warn('Não foi possível baixar o vídeo do vendedor, usando imagem:', err.message);
     }
   }
 
-  // 3. Compilar Shorts MP4 com FFmpeg
-  onProgress?.('Compilando vídeo vertical MP4 em 1080x1920...');
+  if (sellerLocalPath && existsSync(sellerLocalPath)) {
+    // ── MODO VÍDEO DO VENDEDOR (Compositor FFmpeg direto em 1080x1920) ───────────
+    onProgress?.('Compilando vídeo real com layout vertical 9:16 e voz neural...');
+    const overlayPath = join(tmpDir, 'shorts_overlay.png');
+    const overlayCanvas = renderShortsOverlay(product);
+    writeFileSync(overlayPath, overlayCanvas.toBuffer('image/png'));
 
-  const ffmpegArgs = [
-    '-y',
-    '-framerate', String(FPS),
-    '-i', join(tmpDir, 'frame_%05d.jpg'),
-  ];
+    const filterComplex = [
+      '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25:5,colorchannelmixer=aa=0.45[bg]',
+      '[0:v]scale=920:980:force_original_aspect_ratio=decrease,pad=920:980:(920-iw)/2:(980-ih)/2:color=black@0[fg]',
+      '[bg][fg]overlay=80:240[with_fg]',
+      '[with_fg][1:v]overlay=0:0[vout]',
+    ].join(';');
 
-  if (audioPath && existsSync(audioPath)) {
-    ffmpegArgs.push('-i', audioPath);
-  }
+    const ffmpegArgs = [
+      '-y',
+      '-stream_loop', '-1',
+      '-i', sellerLocalPath,
+      '-loop', '1',
+      '-i', overlayPath,
+    ];
 
-  ffmpegArgs.push(
-    '-c:v', 'libx264',
-    '-preset', 'veryfast',
-    '-threads', '0',
-    '-crf', '21',
-    '-pix_fmt', 'yuv420p',
-  );
+    if (audioPath && existsSync(audioPath)) {
+      ffmpegArgs.push('-i', audioPath);
+    }
 
-  if (audioPath && existsSync(audioPath)) {
-    // Normalização broadcast EBU R128 (-16 LUFS) para YouTube Shorts
-    ffmpegArgs.push('-af', 'loudnorm=I=-16:TP=-1.5:LRA=11');
-    ffmpegArgs.push('-c:a', 'aac', '-b:a', '192k', '-shortest');
-  }
+    ffmpegArgs.push(
+      '-filter_complex', filterComplex,
+      '-map', '[vout]',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-threads', '0',
+      '-crf', '21',
+      '-pix_fmt', 'yuv420p',
+      '-t', String(totalDuration.toFixed(3)),
+    );
 
-  ffmpegArgs.push(outputPath);
+    if (audioPath && existsSync(audioPath)) {
+      ffmpegArgs.push(
+        '-map', '2:a',
+        '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-shortest'
+      );
+    }
 
-  await new Promise((resolve, reject) => {
-    const proc = spawn(ffmpeg, ffmpegArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
-    let errOutput = '';
-    proc.stderr.on('data', (d) => { errOutput += d.toString(); });
-    proc.on('close', (code) => {
-      if (code === 0 && existsSync(outputPath)) resolve();
-      else reject(new Error(`Falha ao compilar Shorts: ${errOutput}`));
+    ffmpegArgs.push(outputPath);
+
+    await new Promise((resolve, reject) => {
+      const proc = spawn(ffmpeg, ffmpegArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
+      let errOutput = '';
+      proc.stderr.on('data', (d) => { errOutput += d.toString(); });
+      proc.on('close', (code) => {
+        if (code === 0 && existsSync(outputPath)) resolve();
+        else reject(new Error(`Falha ao compilar Shorts com vídeo do vendedor: ${errOutput}`));
+      });
     });
-  });
+  } else {
+    // ── MODO ESTÁTICO HD (Frames 9:16 com zoom suave) ──────────────────────────
+    const totalFrames = Math.round(totalDuration * FPS);
+    onProgress?.(`Renderizando ${totalFrames} frames verticais (1080x1920)...`);
+
+    for (let f = 0; f < totalFrames; f++) {
+      const progress = f / totalFrames;
+      const canvas = renderShortsFrame(product, progress);
+      const framePath = join(tmpDir, `frame_${String(f).padStart(5, '0')}.jpg`);
+      writeFileSync(framePath, canvas.toBuffer('image/jpeg', { quality: 90 }));
+
+      if (f % 60 === 0) {
+        onProgress?.(`Renderizados ${f}/${totalFrames} frames...`);
+      }
+    }
+
+    onProgress?.('Compilando vídeo vertical MP4 em 1080x1920...');
+
+    const ffmpegArgs = [
+      '-y',
+      '-framerate', String(FPS),
+      '-i', join(tmpDir, 'frame_%05d.jpg'),
+    ];
+
+    if (audioPath && existsSync(audioPath)) {
+      ffmpegArgs.push('-i', audioPath);
+    }
+
+    ffmpegArgs.push(
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-threads', '0',
+      '-crf', '21',
+      '-pix_fmt', 'yuv420p',
+    );
+
+    if (audioPath && existsSync(audioPath)) {
+      ffmpegArgs.push('-af', 'loudnorm=I=-16:TP=-1.5:LRA=11');
+      ffmpegArgs.push('-c:a', 'aac', '-b:a', '192k', '-shortest');
+    }
+
+    ffmpegArgs.push(outputPath);
+
+    await new Promise((resolve, reject) => {
+      const proc = spawn(ffmpeg, ffmpegArgs, { stdio: ['ignore', 'ignore', 'pipe'] });
+      let errOutput = '';
+      proc.stderr.on('data', (d) => { errOutput += d.toString(); });
+      proc.on('close', (code) => {
+        if (code === 0 && existsSync(outputPath)) resolve();
+        else reject(new Error(`Falha ao compilar Shorts: ${errOutput}`));
+      });
+    });
+  }
 
   // Limpeza de arquivos temporários
   try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
