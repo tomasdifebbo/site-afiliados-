@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
               price: p.price,
               affiliateLink: p.affiliateLink,
               imageUrl: p.imageUrl,
+              sellerVideoUrl: p.videoUrl || null,
               status: "novo",
             },
           });
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Inserção individual (ou manual)
-    const { productId, productName, categoryName, price, affiliateLink, imageUrl } = body;
+    const { productId, productName, categoryName, price, affiliateLink, imageUrl, sellerVideoUrl } = body;
 
     if (!productName) {
       return NextResponse.json({ error: "Nome do produto é obrigatório" }, { status: 400 });
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
         price: price ? Number(price) : null,
         affiliateLink: affiliateLink || "",
         imageUrl: imageUrl || "",
+        sellerVideoUrl: sellerVideoUrl || null,
         status: "novo",
       },
     });

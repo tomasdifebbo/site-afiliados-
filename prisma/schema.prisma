@@ -37,6 +37,7 @@ model Product {
   ratingStar     Float?
   discountRate   Int?
   priceUpdatedAt DateTime?
+  videoUrl       String?
   clicks        Click[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -71,6 +72,7 @@ model DarkVideo {
   price           Float?
   affiliateLink   String?
   imageUrl        String?
+  sellerVideoUrl  String?
   scriptText      String?
   captionText     String?
   videoUrl        String?

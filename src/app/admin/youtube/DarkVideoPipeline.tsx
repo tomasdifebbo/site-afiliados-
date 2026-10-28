@@ -19,7 +19,10 @@ import {
   ExternalLink,
   ChevronRight,
   Trash2,
-  Zap
+  Zap,
+  Video,
+  Eye,
+  Link as LinkIcon
 } from "lucide-react";
 
 interface DarkVideoItem {
@@ -30,6 +33,7 @@ interface DarkVideoItem {
   price?: number | null;
   affiliateLink?: string | null;
   imageUrl?: string | null;
+  sellerVideoUrl?: string | null;
   scriptText?: string | null;
   captionText?: string | null;
   videoUrl?: string | null;
@@ -57,11 +61,91 @@ export function DarkVideoPipeline() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<DarkVideoItem | null>(null);
+  const [modalVideoTab, setModalVideoTab] = useState<"dark" | "seller">("dark");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [syncingFlash, setSyncingFlash] = useState(false);
   const [generatingAiId, setGeneratingAiId] = useState<string | null>(null);
+  const [extractingVideoId, setExtractingVideoId] = useState<string | null>(null);
+
+  // Extrator direto por link
+  const [customUrlInput, setCustomUrlInput] = useState("");
+  const [extractingCustom, setExtractingCustom] = useState(false);
+  const [extractedCustomVideo, setExtractedCustomVideo] = useState<any | null>(null);
 
   const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+
+  const handleExtractSellerVideo = async (darkVideoId: string) => {
+    try {
+      setExtractingVideoId(darkVideoId);
+      const res = await fetch("/api/admin/shopee/extract-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ darkVideoId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Vídeo não encontrado para este anúncio.");
+      }
+      await fetchQueue();
+      if (selectedVideo && selectedVideo.id === darkVideoId) {
+        setSelectedVideo((prev: any) => ({
+          ...prev,
+          sellerVideoUrl: data.videoUrl,
+        }));
+      }
+      alert("🎬 Vídeo original do vendedor capturado com sucesso!");
+    } catch (e: any) {
+      alert("Falha na extração do vídeo: " + e.message);
+    } finally {
+      setExtractingVideoId(null);
+    }
+  };
+
+  const handleExtractCustomUrl = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!customUrlInput.trim()) return;
+    try {
+      setExtractingCustom(true);
+      setExtractedCustomVideo(null);
+      const res = await fetch("/api/admin/shopee/extract-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: customUrlInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Vídeo não encontrado para este anúncio.");
+      }
+      setExtractedCustomVideo(data);
+    } catch (e: any) {
+      alert("Erro ao extrair vídeo: " + e.message);
+    } finally {
+      setExtractingCustom(false);
+    }
+  };
+
+  const handleAddCustomToQueue = async () => {
+    if (!extractedCustomVideo) return;
+    try {
+      const res = await fetch("/api/admin/dark-video/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: extractedCustomVideo.title || "Achadinho da Shopee",
+          affiliateLink: customUrlInput.trim(),
+          sellerVideoUrl: extractedCustomVideo.videoUrl,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao adicionar");
+      alert("🎉 Vídeo do vendedor adicionado à esteira de vídeos dark!");
+      setCustomUrlInput("");
+      setExtractedCustomVideo(null);
+      await fetchQueue();
+    } catch (e: any) {
+      alert("Erro: " + e.message);
+    }
+  };
 
   const handleGenerateGeminiScript = async (id: string) => {
     try {
@@ -353,6 +437,106 @@ export function DarkVideoPipeline() {
           </div>
         </div>
 
+        {/* Puxador Instantâneo de Vídeo do Vendedor Shopee */}
+        <div style={{
+          marginTop: "1.5rem",
+          background: "rgba(255, 255, 255, 0.04)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          borderRadius: "18px",
+          padding: "1.25rem 1.5rem",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#FF7A00", fontWeight: 800, fontSize: "0.95rem", marginBottom: "4px" }}>
+            <Video size={18} /> Puxador de Vídeo do Vendedor (Shopee Oficial)
+          </div>
+          <p style={{ margin: "0 0 12px 0", color: "#cbd5e1", fontSize: "0.85rem", lineHeight: 1.5 }}>
+            Cole qualquer link de produto ou link de afiliado da Shopee (ex: <code style={{ color: "#38bdf8" }}>https://s.shopee.com.br/...</code> ou <code style={{ color: "#38bdf8" }}>https://shopee.com.br/product/...</code>) para baixar o vídeo original publicado pelo vendedor em MP4 sem marca d&apos;água.
+          </p>
+
+          <form onSubmit={handleExtractCustomUrl} style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              value={customUrlInput}
+              onChange={(e) => setCustomUrlInput(e.target.value)}
+              placeholder="Cole o link do produto ou link de afiliado da Shopee aqui..."
+              style={{
+                flex: 1, minWidth: "260px", padding: "12px 16px", borderRadius: "12px",
+                border: "1px solid rgba(255, 255, 255, 0.2)", background: "rgba(0, 0, 0, 0.4)",
+                color: "#fff", fontSize: "0.9rem", outline: "none"
+              }}
+            />
+            <button
+              type="submit"
+              disabled={extractingCustom || !customUrlInput.trim()}
+              style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                padding: "12px 22px", borderRadius: "12px", border: "none",
+                background: "linear-gradient(135deg, #FF5722 0%, #FF7A00 100%)",
+                color: "#fff", fontWeight: 800, fontSize: "0.9rem", cursor: extractingCustom || !customUrlInput.trim() ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 14px rgba(255,87,34,0.35)", whiteSpace: "nowrap"
+              }}
+            >
+              <RefreshCw size={16} className={extractingCustom ? "animate-spin" : ""} />
+              {extractingCustom ? "Extraindo Vídeo..." : "🎬 Puxar Vídeo"}
+            </button>
+          </form>
+
+          {/* Resultado do Vídeo Extraído */}
+          {extractedCustomVideo && (
+            <div style={{
+              marginTop: "1.25rem", padding: "1.25rem", borderRadius: "14px",
+              background: "rgba(0,0,0,0.5)", border: "1px solid rgba(16, 185, 129, 0.35)",
+              display: "flex", gap: "1.5rem", alignItems: "center", flexWrap: "wrap"
+            }}>
+              <div style={{ width: "150px", height: "200px", borderRadius: "12px", overflow: "hidden", background: "#000", flexShrink: 0 }}>
+                <video
+                  src={extractedCustomVideo.videoUrl}
+                  controls
+                  playsInline
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: "240px" }}>
+                <div style={{ display: "inline-block", background: "#dcfce7", color: "#15803d", fontSize: "0.75rem", fontWeight: 800, padding: "3px 10px", borderRadius: "6px", marginBottom: "8px" }}>
+                  ✅ VÍDEO DO VENDEDOR CAPTURADO (MP4 DIRETO)
+                </div>
+                <h4 style={{ margin: "0 0 8px 0", color: "#fff", fontSize: "1rem", fontWeight: 700 }}>
+                  {extractedCustomVideo.title || "Produto Shopee"}
+                </h4>
+                <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginBottom: "12px", wordBreak: "break-all" }}>
+                  CDN Shopee: {extractedCustomVideo.videoUrl}
+                </div>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  <a
+                    href={extractedCustomVideo.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download="shopee-video-vendedor.mp4"
+                    style={{
+                      display: "flex", alignItems: "center", gap: "6px",
+                      background: "#10b981", color: "#fff", padding: "10px 18px", borderRadius: "10px",
+                      fontSize: "0.85rem", fontWeight: 800, textDecoration: "none"
+                    }}
+                  >
+                    <Download size={15} /> Baixar Vídeo MP4
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleAddCustomToQueue}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "6px",
+                      background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)",
+                      color: "#fff", padding: "10px 18px", borderRadius: "10px",
+                      fontSize: "0.85rem", fontWeight: 700, cursor: "pointer"
+                    }}
+                  >
+                    <Plus size={15} /> Adicionar à Fila de Vídeos Dark
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Contadores da Fila */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "12px", marginTop: "1.75rem" }}>
           {[
@@ -455,13 +639,23 @@ export function DarkVideoPipeline() {
                         <span style={{ fontSize: "0.72rem", color: "#FF5722", fontWeight: 800, textTransform: "uppercase" }}>
                           {item.categoryName || "Achadinhos"}
                         </span>
-                        <span style={{
-                          fontSize: "0.7rem", fontWeight: 800, padding: "2px 8px", borderRadius: "6px",
-                          background: item.status === "aprovado" ? "#dcfce7" : item.status === "em_revisao" ? "#ffedd5" : item.status === "novo" ? "#fef3c7" : "#f1f5f9",
-                          color: item.status === "aprovado" ? "#15803d" : item.status === "em_revisao" ? "#c2410c" : item.status === "novo" ? "#b45309" : "#475569"
-                        }}>
-                          {item.status.toUpperCase()}
-                        </span>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          {item.sellerVideoUrl && (
+                            <span style={{
+                              fontSize: "0.68rem", fontWeight: 800, padding: "2px 6px", borderRadius: "6px",
+                              background: "#dcfce7", color: "#15803d", display: "flex", alignItems: "center", gap: "3px"
+                            }}>
+                              <Video size={10} /> Vídeo Shopee
+                            </span>
+                          )}
+                          <span style={{
+                            fontSize: "0.7rem", fontWeight: 800, padding: "2px 8px", borderRadius: "6px",
+                            background: item.status === "aprovado" ? "#dcfce7" : item.status === "em_revisao" ? "#ffedd5" : item.status === "novo" ? "#fef3c7" : "#f1f5f9",
+                            color: item.status === "aprovado" ? "#15803d" : item.status === "em_revisao" ? "#c2410c" : item.status === "novo" ? "#b45309" : "#475569"
+                          }}>
+                            {item.status.toUpperCase()}
+                          </span>
+                        </div>
                       </div>
 
                       <h4 style={{ margin: "4px 0", fontSize: "0.92rem", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -548,6 +742,40 @@ export function DarkVideoPipeline() {
                     </button>
                   )}
 
+                  {/* Botão Vídeo Original do Vendedor */}
+                  {item.sellerVideoUrl ? (
+                    <button
+                      onClick={() => {
+                        setSelectedVideo(item);
+                        setModalVideoTab("seller");
+                      }}
+                      style={{
+                        padding: "8px 12px", borderRadius: "10px", border: "1px solid #bbf7d0",
+                        background: "#f0fdf4", color: "#16a34a",
+                        fontWeight: 800, fontSize: "0.82rem", cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: "4px"
+                      }}
+                      title="Ver Vídeo Original do Vendedor"
+                    >
+                      <Video size={14} /> Vídeo Shopee
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleExtractSellerVideo(item.id)}
+                      disabled={extractingVideoId === item.id}
+                      style={{
+                        padding: "8px 12px", borderRadius: "10px", border: "1px solid #cbd5e1",
+                        background: "#fff", color: "#475569",
+                        fontWeight: 700, fontSize: "0.82rem", cursor: extractingVideoId === item.id ? "not-allowed" : "pointer",
+                        display: "flex", alignItems: "center", gap: "4px"
+                      }}
+                      title="Puxar Vídeo Original do Vendedor da Shopee"
+                    >
+                      <RefreshCw size={14} className={extractingVideoId === item.id ? "animate-spin" : ""} />
+                      {extractingVideoId === item.id ? "Puxando..." : "📹 Puxar Vídeo"}
+                    </button>
+                  )}
+
                   {item.captionText && (
                     <button
                       onClick={() => copyToClipboard(item.captionText!, item.id)}
@@ -623,11 +851,46 @@ export function DarkVideoPipeline() {
               ✕
             </button>
 
-            {/* Coluna da Esquerda: Player 9:16 */}
+            {/* Coluna da Esquerda: Player */}
             <div style={{ width: "270px", flexShrink: 0 }}>
+              {/* Abas Dark / Vendedor se ambos existirem */}
+              {(selectedVideo.videoUrl && selectedVideo.sellerVideoUrl) && (
+                <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+                  <button
+                    onClick={() => setModalVideoTab("dark")}
+                    style={{
+                      flex: 1, padding: "6px", borderRadius: "8px", border: "none",
+                      background: modalVideoTab === "dark" ? "#FF5722" : "rgba(255,255,255,0.1)",
+                      color: "#fff", fontSize: "0.75rem", fontWeight: 800, cursor: "pointer"
+                    }}
+                  >
+                    Dark 9:16
+                  </button>
+                  <button
+                    onClick={() => setModalVideoTab("seller")}
+                    style={{
+                      flex: 1, padding: "6px", borderRadius: "8px", border: "none",
+                      background: modalVideoTab === "seller" ? "#10b981" : "rgba(255,255,255,0.1)",
+                      color: "#fff", fontSize: "0.75rem", fontWeight: 800, cursor: "pointer"
+                    }}
+                  >
+                    Vendedor Shopee
+                  </button>
+                </div>
+              )}
+
+              {/* Tag indicativa */}
+              <div style={{ fontSize: "0.72rem", color: "#a1a1aa", marginBottom: "6px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                <Video size={12} color={modalVideoTab === "seller" || !selectedVideo.videoUrl ? "#10b981" : "#FF5722"} />
+                {modalVideoTab === "seller" || !selectedVideo.videoUrl
+                  ? "Vídeo Original do Vendedor (Shopee CDN)"
+                  : "Vídeo Dark Renderizado (9:16 com Voz)"}
+              </div>
+
               <div style={{ width: "270px", height: "480px", borderRadius: "20px", overflow: "hidden", background: "#000", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
                 <video
-                  src={selectedVideo.videoUrl || ""}
+                  key={(modalVideoTab === "seller" || !selectedVideo.videoUrl) ? selectedVideo.sellerVideoUrl : selectedVideo.videoUrl}
+                  src={(modalVideoTab === "seller" || !selectedVideo.videoUrl) ? (selectedVideo.sellerVideoUrl || "") : (selectedVideo.videoUrl || "")}
                   controls
                   autoPlay
                   loop
@@ -636,14 +899,19 @@ export function DarkVideoPipeline() {
                 />
               </div>
 
-              <div style={{ marginTop: "12px" }}>
+              <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
                 <a
-                  href={selectedVideo.videoUrl || ""}
-                  download={`shorts-${selectedVideo.id}.mp4`}
+                  href={(modalVideoTab === "seller" || !selectedVideo.videoUrl) ? (selectedVideo.sellerVideoUrl || "") : (selectedVideo.videoUrl || "")}
+                  download={`video-${selectedVideo.id}.mp4`}
+                  target="_blank"
+                  rel="noreferrer"
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
                     width: "100%", padding: "10px", borderRadius: "12px",
-                    background: "linear-gradient(135deg, #FF5722, #FF7A00)", color: "#fff",
+                    background: (modalVideoTab === "seller" || !selectedVideo.videoUrl)
+                      ? "linear-gradient(135deg, #10b981, #059669)"
+                      : "linear-gradient(135deg, #FF5722, #FF7A00)",
+                    color: "#fff",
                     fontWeight: 800, fontSize: "0.85rem", textDecoration: "none"
                   }}
                 >
@@ -664,6 +932,23 @@ export function DarkVideoPipeline() {
               <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: "14px", padding: "1rem", marginBottom: "1rem", fontSize: "0.85rem" }}>
                 <div style={{ color: "#a1a1aa", marginBottom: "4px" }}>💰 Preço Verificado: <strong style={{ color: "#FF7A00" }}>{selectedVideo.price ? `R$ ${selectedVideo.price.toFixed(2).replace(".", ",")}` : "Sob consulta"}</strong></div>
                 <div style={{ color: "#a1a1aa", wordBreak: "break-all" }}>🔗 Link de Afiliado: <a href={selectedVideo.affiliateLink || "#"} target="_blank" rel="noreferrer" style={{ color: "#38bdf8" }}>{selectedVideo.affiliateLink || "Link da loja"}</a></div>
+                {!selectedVideo.sellerVideoUrl && (
+                  <div style={{ marginTop: "10px" }}>
+                    <button
+                      onClick={() => handleExtractSellerVideo(selectedVideo.id)}
+                      disabled={extractingVideoId === selectedVideo.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "6px",
+                        background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.2)",
+                        color: "#38bdf8", padding: "8px 14px", borderRadius: "10px",
+                        fontSize: "0.82rem", fontWeight: 700, cursor: extractingVideoId === selectedVideo.id ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      <RefreshCw size={14} className={extractingVideoId === selectedVideo.id ? "animate-spin" : ""} />
+                      {extractingVideoId === selectedVideo.id ? "Puxando vídeo da Shopee..." : "📹 Puxar Vídeo Original do Vendedor"}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: "1rem" }}>
