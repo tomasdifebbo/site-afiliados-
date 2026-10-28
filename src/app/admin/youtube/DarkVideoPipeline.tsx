@@ -73,6 +73,11 @@ export function DarkVideoPipeline() {
   const [extractingCustom, setExtractingCustom] = useState(false);
   const [extractedCustomVideo, setExtractedCustomVideo] = useState<any | null>(null);
 
+  // Modal de Ofertas Relâmpago
+  const [showFlashModal, setShowFlashModal] = useState(false);
+  const [flashUrlInput, setFlashUrlInput] = useState("");
+  const [flashExtractVideos, setFlashExtractVideos] = useState(true);
+
   const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
 
   const handleExtractSellerVideo = async (darkVideoId: string) => {
@@ -193,24 +198,28 @@ export function DarkVideoPipeline() {
     }
   };
 
-  const handleSyncLiveFlashDeals = async () => {
-    const inputUrl = prompt(
-      "Cole o link da página de Ofertas Relâmpago da Shopee (ou deixe vazio para puxar a sessão ao vivo de agora):",
-      "https://shopee.com.br/flash_sale?promotionId=514572205371541"
-    );
-    if (inputUrl === null) return;
+  const handleSyncLiveFlashDeals = () => {
+    setShowFlashModal(true);
+  };
 
+  const executeSyncFlashDeals = async () => {
     try {
       setSyncingFlash(true);
       const res = await fetch("/api/admin/shopee/sync-flash-deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: inputUrl.trim() || undefined, limit: 30, addToDarkQueue: true }),
+        body: JSON.stringify({
+          url: flashUrlInput.trim() || undefined,
+          limit: 30,
+          addToDarkQueue: true,
+          extractVideos: flashExtractVideos,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao puxar ofertas relâmpago");
       const videoMsg = data.videosExtracted ? ` e 🎬 ${data.videosExtracted} vídeos de vendedores capturados` : "";
       alert(`⚡ Sucesso! ${data.totalFetched || 0} ofertas relâmpago oficiais da Shopee sincronizadas, ${data.darkQueueCount || 0} novos produtos entraram na esteira dark${videoMsg}!`);
+      setShowFlashModal(false);
       await fetchQueue();
     } catch (err: any) {
       alert("Falha: " + err.message);
@@ -322,7 +331,6 @@ export function DarkVideoPipeline() {
 
   // Deletar item
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja remover este vídeo da esteira?")) return;
     try {
       await fetch(`/api/admin/dark-video/queue?id=${id}`, { method: "DELETE" });
       if (selectedVideo?.id === id) setSelectedVideo(null);
@@ -1038,6 +1046,102 @@ export function DarkVideoPipeline() {
                   Rejeitar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Sincronizar Ofertas Relâmpago Shopee */}
+      {showFlashModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0, 0, 0, 0.8)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 99999, padding: "1.5rem"
+        }}>
+          <div style={{
+            background: "#18181b", borderRadius: "20px", padding: "1.75rem",
+            maxWidth: "520px", width: "100%", border: "1px solid rgba(255,255,255,0.15)",
+            boxShadow: "0 25px 50px rgba(0,0,0,0.6)", color: "#fff", position: "relative"
+          }}>
+            <button
+              onClick={() => setShowFlashModal(false)}
+              style={{
+                position: "absolute", top: "16px", right: "16px",
+                background: "rgba(255,255,255,0.1)", border: "none", color: "#fff",
+                borderRadius: "50%", width: "32px", height: "32px", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}
+            >
+              ✕
+            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#ea580c", fontWeight: 800, fontSize: "1.1rem", marginBottom: "8px" }}>
+              <Zap size={20} /> Sincronizar Ofertas Relâmpago Shopee
+            </div>
+            <p style={{ margin: "0 0 16px 0", color: "#cbd5e1", fontSize: "0.85rem", lineHeight: 1.5 }}>
+              Puxa automaticamente as ofertas com maiores descontos da Shopee oficial de agora e cadastra na esteira de vídeos.
+            </p>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontSize: "0.8rem", color: "#a1a1aa", fontWeight: 700, marginBottom: "6px" }}>
+                Link de Ofertas Relâmpago (Opcional):
+              </label>
+              <input
+                type="text"
+                value={flashUrlInput}
+                onChange={(e) => setFlashUrlInput(e.target.value)}
+                placeholder="Deixe vazio para puxar a sessão ao vivo de agora automaticamente..."
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: "10px",
+                  border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.4)",
+                  color: "#fff", fontSize: "0.85rem", outline: "none", boxSizing: "border-box"
+                }}
+              />
+              <span style={{ fontSize: "0.72rem", color: "#94a3b8", display: "block", marginTop: "4px" }}>
+                💡 Deixe em branco para o robô detectar a sessão em tempo real.
+              </span>
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem", color: "#e2e8f0", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={flashExtractVideos}
+                  onChange={(e) => setFlashExtractVideos(e.target.checked)}
+                  style={{ width: "16px", height: "16px", accentColor: "#FF5722", cursor: "pointer" }}
+                />
+                <span>🎬 Extrair vídeos dos vendedores automaticamente</span>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={executeSyncFlashDeals}
+                disabled={syncingFlash}
+                style={{
+                  flex: 1, padding: "12px", borderRadius: "12px", border: "none",
+                  background: "linear-gradient(135deg, #dc2626 0%, #ea580c 100%)",
+                  color: "#fff", fontWeight: 800, fontSize: "0.92rem",
+                  cursor: syncingFlash ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  boxShadow: "0 4px 14px rgba(220, 38, 38, 0.4)"
+                }}
+              >
+                <RefreshCw size={16} className={syncingFlash ? "animate-spin" : ""} />
+                {syncingFlash ? "Sincronizando Ofertas & Vídeos..." : "⚡ Sincronizar Agora"}
+              </button>
+              <button
+                onClick={() => setShowFlashModal(false)}
+                disabled={syncingFlash}
+                style={{
+                  padding: "12px 18px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.06)", color: "#fff", fontWeight: 700, fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
