@@ -6,6 +6,7 @@ import {
   generateShortLink,
   slugify,
 } from "@/lib/shopee";
+import { extractShopeeProductVideo } from "@/lib/shopeeVideoExtractor";
 
 /**
  * ⚡ Sincronizador de Ofertas Relâmpago Oficiais da Shopee
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     const url: string | null = body?.url || null;
     const limit: number = Math.min(60, Math.max(10, body?.limit || 30));
     const addToDarkQueue: boolean = body?.addToDarkQueue !== false;
+    const extractVideos: boolean = body?.extractVideos !== false;
 
     // 1. Se passou URL, extrai o promotionId
     if (url) {
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
     let updatedCount = 0;
     let newDealsCount = 0;
     let darkQueueCount = 0;
+    let videosExtracted = 0;
     const processedProducts = [];
 
     // 5. Salva ou atualiza cada produto no banco
@@ -127,7 +130,30 @@ export async function POST(req: NextRequest) {
 
         processedProducts.push(savedProduct);
 
-        // 6. Adiciona automaticamente à Esteira de Vídeos Dark se solicitado
+        // 6. Extrai vídeo original do vendedor na Shopee (se habilitado e produto tem shopId/itemId)
+        let sellerVideoUrl: string | null = savedProduct.videoUrl || null;
+        if (extractVideos && !sellerVideoUrl && savedProduct.shopId && savedProduct.itemId) {
+          try {
+            console.log(`[FlashSale] Extraindo vídeo do vendedor para ${savedProduct.name}...`);
+            const videoResult = await extractShopeeProductVideo(
+              `https://shopee.com.br/product/${savedProduct.shopId}/${savedProduct.itemId}`,
+              { timeoutMs: 25000 }
+            );
+            if (videoResult.success && videoResult.videoUrl) {
+              sellerVideoUrl = videoResult.videoUrl;
+              await prisma.product.update({
+                where: { id: savedProduct.id },
+                data: { videoUrl: sellerVideoUrl },
+              });
+              videosExtracted++;
+              console.log(`[FlashSale] ✅ Vídeo capturado para ${savedProduct.name}`);
+            }
+          } catch (videoErr: any) {
+            console.warn(`[FlashSale] Não foi possível extrair vídeo para ${savedProduct.name}:`, videoErr.message);
+          }
+        }
+
+        // 7. Adiciona automaticamente à Esteira de Vídeos Dark se solicitado
         if (addToDarkQueue) {
           const existingDark = await prisma.darkVideo.findFirst({
             where: {
@@ -145,6 +171,7 @@ export async function POST(req: NextRequest) {
                 price: savedProduct.price,
                 affiliateLink: savedProduct.affiliateLink,
                 imageUrl: savedProduct.imageUrl,
+                sellerVideoUrl: sellerVideoUrl || null,
                 status: "novo",
               },
             });
@@ -158,12 +185,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `⚡ ${flashItems.length} Ofertas Relâmpago oficiais da Shopee sincronizadas com sucesso! (${newDealsCount} novos produtos, ${updatedCount} atualizados e ${darkQueueCount} enviados para a Esteira de Vídeos Dark)`,
+      message: `⚡ ${flashItems.length} Ofertas Relâmpago oficiais da Shopee sincronizadas com sucesso! (${newDealsCount} novos produtos, ${updatedCount} atualizados, ${videosExtracted} vídeos de vendedores capturados e ${darkQueueCount} enviados para a Esteira de Vídeos Dark)`,
       promotionId,
       totalFetched: flashItems.length,
       newDealsCount,
       updatedCount,
       darkQueueCount,
+      videosExtracted,
       sampleItems: processedProducts.slice(0, 5).map((p) => ({
         name: p.name,
         price: p.price,

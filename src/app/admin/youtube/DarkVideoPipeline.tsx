@@ -66,6 +66,7 @@ export function DarkVideoPipeline() {
   const [syncingFlash, setSyncingFlash] = useState(false);
   const [generatingAiId, setGeneratingAiId] = useState<string | null>(null);
   const [extractingVideoId, setExtractingVideoId] = useState<string | null>(null);
+  const [extractingBatch, setExtractingBatch] = useState(false);
 
   // Extrator direto por link
   const [customUrlInput, setCustomUrlInput] = useState("");
@@ -98,6 +99,25 @@ export function DarkVideoPipeline() {
       alert("Falha na extração do vídeo: " + e.message);
     } finally {
       setExtractingVideoId(null);
+    }
+  };
+
+  const handleExtractBatchVideos = async () => {
+    try {
+      setExtractingBatch(true);
+      const res = await fetch("/api/admin/shopee/extract-video/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 10 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha na extração em lote");
+      alert(data.message || `🎬 ${data.extracted || 0} vídeos de vendedores extraídos!`);
+      await fetchQueue();
+    } catch (e: any) {
+      alert("Erro na extração em lote: " + e.message);
+    } finally {
+      setExtractingBatch(false);
     }
   };
 
@@ -189,7 +209,8 @@ export function DarkVideoPipeline() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao puxar ofertas relâmpago");
-      alert(`⚡ Sucesso! ${data.totalFetched || 0} ofertas relâmpago oficiais da Shopee sincronizadas e ${data.darkQueueCount || 0} novos produtos entraram na esteira dark!`);
+      const videoMsg = data.videosExtracted ? ` e 🎬 ${data.videosExtracted} vídeos de vendedores capturados` : "";
+      alert(`⚡ Sucesso! ${data.totalFetched || 0} ofertas relâmpago oficiais da Shopee sincronizadas, ${data.darkQueueCount || 0} novos produtos entraram na esteira dark${videoMsg}!`);
       await fetchQueue();
     } catch (err: any) {
       alert("Falha: " + err.message);
@@ -390,6 +411,21 @@ export function DarkVideoPipeline() {
             >
               <Zap size={16} className={syncingFlash ? "animate-spin" : ""} />
               {syncingFlash ? "Puxando Ofertas..." : "⚡ Puxar Ofertas Relâmpago Shopee"}
+            </button>
+
+            <button
+              onClick={handleExtractBatchVideos}
+              disabled={extractingBatch || isProcessing}
+              style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                border: "none", padding: "10px 18px", borderRadius: "14px", color: "#fff",
+                fontWeight: 800, fontSize: "0.88rem", cursor: extractingBatch || isProcessing ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.35)",
+              }}
+            >
+              <Video size={16} className={extractingBatch ? "animate-spin" : ""} />
+              {extractingBatch ? "Extraindo Vídeos..." : "🎬 Puxar Vídeos dos Vendedores em Lote"}
             </button>
 
             <button

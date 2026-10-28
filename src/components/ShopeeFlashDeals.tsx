@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ChevronRight, ChevronLeft, Flame } from "lucide-react";
+import { ChevronRight, ChevronLeft, Flame, Video } from "lucide-react";
 
 export interface FlashDealProduct {
   id: string;
@@ -9,6 +9,7 @@ export interface FlashDealProduct {
   slug: string;
   price: number;
   imageUrl: string;
+  videoUrl?: string | null;
   discountRate?: number | null;
   sales?: number | null;
 }
@@ -335,6 +336,30 @@ export function ShopeeFlashDeals({ products }: ShopeeFlashDealsProps) {
                   >
                     <div>-{discount}%</div>
                   </div>
+
+                  {/* Badge Vídeo do Vendedor */}
+                  {item.videoUrl && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "6px",
+                        left: "6px",
+                        backgroundColor: "rgba(0, 0, 0, 0.75)",
+                        backdropFilter: "blur(4px)",
+                        color: "#fff",
+                        fontSize: "0.62rem",
+                        fontWeight: 800,
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "3px",
+                      }}
+                    >
+                      <Video size={10} color="#10b981" />
+                      <span>VÍDEO</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Preço em Destaque Vermelho/Laranja */}
