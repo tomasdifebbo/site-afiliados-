@@ -433,7 +433,8 @@ export async function generateShorts({
   const priceSpoken = formatSpokenPrice(product.price);
   const discountText = product.discount || product.discountRate ? `com ${product.discount || product.discountRate}% de desconto` : 'com frete super rápido';
 
-  const scriptText = `Olha só esse achadinho incrível que eu encontrei na Shopee! É o ${shortTitle}. ${benefit} E o melhor de tudo é o preço: está saindo por apenas ${priceSpoken}, ${discountText}. O link oficial com frete grátis tá fixado no primeiro comentário!`;
+  const defaultScript = `Olha só esse achadinho incrível que eu encontrei na Shopee! É o ${shortTitle}. ${benefit} E o melhor de tudo é o preço: está saindo por apenas ${priceSpoken}, ${discountText}. O link oficial com frete grátis tá fixado no primeiro comentário!`;
+  const scriptText = product.scriptText ? product.scriptText.trim() : defaultScript;
 
   let totalDuration = 12.0;
   let audioPath = null;

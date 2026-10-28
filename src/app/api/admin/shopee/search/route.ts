@@ -5,14 +5,10 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const keyword = searchParams.get("keyword")?.trim();
+    const keyword = searchParams.get("keyword")?.trim() || undefined;
     const sortType = parseInt(searchParams.get("sortType") || "2", 10);
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
-
-    if (!keyword) {
-      return NextResponse.json({ error: "Palavra-chave não informada." }, { status: 400 });
-    }
 
     const result = await searchProductOffers({
       keyword,

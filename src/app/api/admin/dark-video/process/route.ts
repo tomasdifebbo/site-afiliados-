@@ -199,6 +199,7 @@ export async function POST(req: NextRequest) {
           price: item.price || 0,
           imageUrl: item.imageUrl || "",
           sellerVideoUrl: item.sellerVideoUrl || undefined,
+          scriptText: script,
           ratingStar: 4.9,
           sales: 1200,
           discountRate: item.price ? 25 : undefined,
