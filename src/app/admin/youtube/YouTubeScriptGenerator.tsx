@@ -432,7 +432,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                   onChange={(e) => setIncludeAudio(e.target.checked)}
                   style={{ width: "17px", height: "17px", accentColor: "#FF5722", cursor: "pointer" }}
                 />
-                🎙️ <strong>Narração com voz natural (Piper TTS pt-BR)</strong> — 100% grátis e sincronizada
+                🎙️ <strong>Narração com Google Gemini Audio API</strong> — Voz neural oficial sincronizada
               </label>
             </div>
 
@@ -556,7 +556,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                           💡 O vídeo já está com a narração gravada!
                         </h4>
                         <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "#475569", fontSize: "0.88rem", lineHeight: 1.7 }}>
-                          <li>O vídeo já contém a <strong>voz gerada pelo Piper TTS</strong> sincronizada perfeitamente com os produtos e preços.</li>
+                          <li>O vídeo já contém a <strong>voz neural gerada pelo Google Gemini</strong> sincronizada perfeitamente com os produtos e preços.</li>
                           <li>Se quiser, você pode adicionar uma música de fundo suave ou subir o arquivo direto no YouTube Studio.</li>
                           <li>Copie a <strong>Descrição YouTube</strong> e as <strong>Tags</strong> nas abas ao lado e publique seu vídeo!</li>
                         </ol>
