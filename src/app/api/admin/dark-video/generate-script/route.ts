@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateProductScriptWithGemini } from "@/lib/geminiScriptGenerator";
+import { synthesizeVoiceWithGemini } from "@/lib/geminiAudioGenerator";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, productName, price, categoryName, apiKey } = body;
+    const { id, productName, price, categoryName, apiKey, withAudio = true } = body;
 
     let targetProduct = {
       name: productName || "",
@@ -35,12 +36,26 @@ export async function POST(req: NextRequest) {
       apiKey,
     });
 
+    let narrationAudio: { audioUrl: string; durationEstSeconds: number } | null = null;
+    if (withAudio && result.script) {
+      try {
+        narrationAudio = await synthesizeVoiceWithGemini({
+          text: result.script,
+          apiKey,
+          filenamePrefix: `dark-narracao-${id || "preview"}`,
+        });
+      } catch (audioErr: any) {
+        console.warn("[generate-script] Erro ao gerar áudio Gemini TTS:", audioErr.message);
+      }
+    }
+
     if (id) {
       await prisma.darkVideo.update({
         where: { id },
         data: {
           scriptText: result.script,
           captionText: result.caption,
+          notes: narrationAudio ? narrationAudio.audioUrl : undefined,
         },
       });
     }
@@ -48,6 +63,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       ...result,
+      audioUrl: narrationAudio?.audioUrl || null,
+      durationEstSeconds: narrationAudio?.durationEstSeconds || null,
     });
   } catch (err: any) {
     return NextResponse.json(

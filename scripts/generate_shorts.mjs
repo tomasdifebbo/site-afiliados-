@@ -216,16 +216,101 @@ async function synthesizeText(piperConfig, rawText, outWavPath) {
   });
 }
 
-async function synthesizeVoiceUnified({ text, outWavPath, ffmpegBin, piperConfig }) {
+function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const dataSize = pcmBuffer.length;
+  const chunkSize = 36 + dataSize;
+  const header = Buffer.alloc(44);
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(chunkSize, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
+
+async function synthesizeWithGeminiTTS(text, outWavPath, apiKey) {
+  const key = apiKey || process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY não configurada.');
+
+  const clean = sanitizeForTTS(text);
+  const models = ['gemini-3.8-flash-tts', 'gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview'];
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Fale em português do Brasil com voz entusiasmada e profissional para vídeo viral de achadinho da Shopee:\n\n${clean}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: 'Puck',
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const part = data.candidates?.[0]?.content?.parts?.[0];
+      if (!part?.inlineData?.data) continue;
+
+      const rawBuf = Buffer.from(part.inlineData.data, 'base64');
+      const mime = part.inlineData.mimeType || '';
+
+      const finalWav = mime.includes('wav') ? rawBuf : pcmToWav(rawBuf, 24000, 1, 16);
+      writeFileSync(outWavPath, finalWav);
+      return 'gemini-tts';
+    } catch {}
+  }
+
+  throw new Error('Todas as tentativas com Gemini TTS falharam');
+}
+
+async function synthesizeVoiceUnified({ text, outWavPath, ffmpegBin, piperConfig, apiKey }) {
+  // 1. Tenta Gemini TTS Oficial
   try {
-    await synthesizeWithEdgeTTS(text, outWavPath, ffmpegBin, 'pt-BR-AntonioNeural');
-    return 'edge-antonio';
-  } catch (err) {
-    if (piperConfig) {
-      await synthesizeText(piperConfig, text, outWavPath);
-      return 'piper-faber';
+    await synthesizeWithGeminiTTS(text, outWavPath, apiKey);
+    return 'gemini-tts';
+  } catch (geminiErr) {
+    // 2. Fallback para Edge TTS
+    try {
+      await synthesizeWithEdgeTTS(text, outWavPath, ffmpegBin, 'pt-BR-AntonioNeural');
+      return 'edge-antonio';
+    } catch (err) {
+      if (piperConfig) {
+        await synthesizeText(piperConfig, text, outWavPath);
+        return 'piper-faber';
+      }
+      throw err;
     }
-    throw err;
   }
 }
 
@@ -573,13 +658,14 @@ export async function generateShorts({
   let audioPath = null;
 
   if (withAudio) {
-    onProgress?.('🎙️ Gerando narração rápida com a voz Antonio Neural (TechZone)...');
+    onProgress?.('🎙️ Gerando narração neural via Google Gemini Audio API...');
     const wavPath = join(tmpDir, 'shorts_narration.wav');
     await synthesizeVoiceUnified({
       text: scriptText,
       outWavPath: wavPath,
       ffmpegBin: ffmpeg,
       piperConfig,
+      apiKey: product.apiKey,
     });
 
     const rawDur = getWavDuration(wavPath);

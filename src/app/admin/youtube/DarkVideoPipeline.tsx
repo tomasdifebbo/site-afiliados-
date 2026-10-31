@@ -83,6 +83,8 @@ export function DarkVideoPipeline() {
   const [scriptText, setScriptText] = useState("");
   const [captionText, setCaptionText] = useState("");
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [narrationAudioUrl, setNarrationAudioUrl] = useState<string | null>(null);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
 
   // ── PASSO 4: Gerador de Vídeo Final ──
   const [isRendering, setIsRendering] = useState(false);
@@ -206,6 +208,7 @@ export function DarkVideoPipeline() {
   const handleGenerateGeminiNarrative = async () => {
     if (!selectedProduct) return;
     setGeneratingScript(true);
+    setNarrationAudioUrl(null);
     try {
       const res = await fetch("/api/admin/dark-video/generate-script", {
         method: "POST",
@@ -214,12 +217,16 @@ export function DarkVideoPipeline() {
           productName: selectedProduct.productName,
           price: Number(selectedProduct.price) || null,
           categoryName: "Achadinhos Shopee",
+          withAudio: true,
         }),
       });
       const data = await res.json();
       if (data.success) {
         setScriptText(data.script || "");
         setCaptionText(data.caption || "");
+        if (data.audioUrl) {
+          setNarrationAudioUrl(data.audioUrl);
+        }
       } else {
         throw new Error(data.error || "Erro ao gerar narrativa");
       }
@@ -227,6 +234,30 @@ export function DarkVideoPipeline() {
       alert("Falha ao gerar roteiro com Gemini AI: " + e.message);
     } finally {
       setGeneratingScript(false);
+    }
+  };
+
+  // Gerar ou regravar apenas o áudio para o texto editado
+  const handleRegenerateAudio = async () => {
+    if (!scriptText.trim()) return;
+    setGeneratingAudio(true);
+    try {
+      const res = await fetch("/api/admin/dark-video/generate-script", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: selectedProduct?.productName || "Achadinho",
+          withAudio: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.audioUrl) {
+        setNarrationAudioUrl(data.audioUrl);
+      }
+    } catch (e: any) {
+      alert("Erro ao sintetizar áudio: " + e.message);
+    } finally {
+      setGeneratingAudio(false);
     }
   };
 
@@ -671,9 +702,16 @@ export function DarkVideoPipeline() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
               {/* Roteiro da Voz */}
               <div>
-                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 800, color: "#1e293b", marginBottom: "8px" }}>
-                  🎙️ Roteiro da Voz Narrada (TechZone Antonio Neural):
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: 800, color: "#1e293b" }}>
+                    🎙️ Roteiro da Voz Narrada (Google Gemini TTS Oficial):
+                  </label>
+                  {narrationAudioUrl && (
+                    <span style={{ fontSize: "0.75rem", background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: "6px", fontWeight: 700 }}>
+                      ✅ Áudio Gerado
+                    </span>
+                  )}
+                </div>
                 <textarea
                   value={scriptText}
                   onChange={(e) => setScriptText(e.target.value)}
@@ -684,8 +722,19 @@ export function DarkVideoPipeline() {
                     fontFamily: "inherit", resize: "vertical"
                   }}
                 />
-                <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginTop: "4px" }}>
-                  💡 Você pode editar qualquer palavra diretamente para ajustar o tom de voz.
+                
+                {/* Player de Prévia da Narração Gemini */}
+                {narrationAudioUrl && (
+                  <div style={{ marginTop: "10px", background: "#f1f5f9", padding: "10px 14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>🎧 Ouvir Narração Sintetizada pela API do Gemini:</span>
+                    </div>
+                    <audio src={narrationAudioUrl} controls style={{ width: "100%", height: "36px" }} />
+                  </div>
+                )}
+
+                <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginTop: "6px" }}>
+                  💡 Você pode editar qualquer palavra diretamente para ajustar o tom da narração.
                 </span>
               </div>
 
@@ -794,7 +843,7 @@ export function DarkVideoPipeline() {
                   <div><strong>Produto:</strong> {selectedProduct.productName}</div>
                   <div><strong>Preço no Vídeo:</strong> R$ {Number(selectedProduct.price || 0).toFixed(2).replace(".", ",")}</div>
                   <div><strong>Vídeo Demonstrativo:</strong> {sellerVideoUrl ? "✅ Vídeo Original do Vendedor Shopee" : "Foto Oficial HD"}</div>
-                  <div><strong>Narração:</strong> Voz Neural TechZone Antonio (pt-BR)</div>
+                  <div><strong>Narração:</strong> {narrationAudioUrl ? "✅ Google Gemini Audio API (Pronta)" : "Google Gemini TTS Neural (pt-BR)"}</div>
                 </div>
               </div>
 

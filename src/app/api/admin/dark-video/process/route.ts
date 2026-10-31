@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { spawn, execSync } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "fs";
 import { join } from "path";
-import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { generateProductScriptWithGemini } from "@/lib/geminiScriptGenerator";
 
 // ── Funções de Roteiro e Legenda Humanizados ──────────────────────────────────
@@ -45,7 +44,6 @@ function findFFprobe(): string {
   const localAppData = process.env.LOCALAPPDATA || "";
   const candidates = [
     process.env.FFPROBE_PATH,
-    (ffprobeInstaller as any)?.path,
     "ffprobe",
     localAppData ? join(localAppData, "Microsoft/WinGet/Links/ffprobe.exe") : null,
   ].filter(Boolean) as string[];
