@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   let tmpInputPath = "";
   try {
     const body = await req.json();
-    const { postId, categoryId, siteUrl = "https://achadinhosdodia.com.br", products: clientProducts, theme: clientTheme, withAudio = true } = body;
+    const { postId, categoryId, siteUrl = "https://achadinhosdodia.com.br", products: clientProducts, theme: clientTheme, withAudio = true, scriptTexts: clientScriptTexts } = body;
 
     let products = clientProducts || [];
     let categoria = clientTheme || "Achadinhos Shopee";
@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
         siteUrl,
         canal: "Achadinhos do Dia",
         withAudio,
+        scriptTexts: clientScriptTexts || null,
       }),
       "utf-8"
     );

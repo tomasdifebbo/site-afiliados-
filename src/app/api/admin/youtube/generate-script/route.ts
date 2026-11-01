@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { identifyProductsFromYouTubeVideo } from "@/lib/youtubeBlogSync";
+import { generateTechZoneScriptWithGemini } from "@/lib/geminiTechZoneScript";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { postId, categoryId, youtubeUrl, flashDeals, siteUrl = "https://achadinhosdodia.com.br" } = body;
+    const { postId, categoryId, youtubeUrl, flashDeals, siteUrl = "https://achadinhosdodia.com.br", apiKey } = body;
 
     let title = "";
     let products: any[] = [];
@@ -67,7 +68,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nenhum produto encontrado." }, { status: 404 });
     }
 
-    const fullScript = generateHumanScript({ title, products, siteUrl, theme });
+    // ── Inteligência Gemini AI Estilo TechZone ──
+    const techZoneScript = await generateTechZoneScriptWithGemini({
+      products,
+      theme: theme || title,
+      siteUrl,
+      apiKey,
+    });
+
+    const fullScript = techZoneScript.formattedFullScript;
     const youtubeDescription = generateDescription({ title, products, siteUrl });
     const thumbnailSuggestion = generateThumbnailGuide(products);
     const tags = generateTags(products, theme);
@@ -76,6 +85,12 @@ export async function POST(req: NextRequest) {
       title,
       productCount: products.length,
       fullScript,
+      techZoneData: {
+        introNarration: techZoneScript.introNarration,
+        outroNarration: techZoneScript.outroNarration,
+        championProductIndex: techZoneScript.championProductIndex,
+        items: techZoneScript.items,
+      },
       youtubeDescription,
       thumbnailSuggestion,
       tags,

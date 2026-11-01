@@ -10,6 +10,22 @@ interface ScriptResult {
   title: string;
   productCount: number;
   fullScript: string;
+  techZoneData?: {
+    introNarration: string;
+    outroNarration: string;
+    championProductIndex: number;
+    items: Array<{
+      number: number;
+      productName: string;
+      shortName: string;
+      hook: string;
+      narration: string;
+      priceSpoken: string;
+      salesHighlight: string;
+      isChampion: boolean;
+      isBestValue: boolean;
+    }>;
+  };
   youtubeDescription: string;
   thumbnailSuggestion: string;
   tags: string[];
@@ -117,6 +133,16 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
     setVideoError("");
 
     try {
+      // Monta textos de narração no formato esperado pelo renderizador caso venha do Gemini
+      let scriptTexts: string[] | undefined = undefined;
+      if (result.techZoneData && result.techZoneData.items?.length === result.products.length) {
+        scriptTexts = [
+          result.techZoneData.introNarration,
+          ...result.techZoneData.items.map((it) => it.narration),
+          result.techZoneData.outroNarration,
+        ];
+      }
+
       const res = await fetch("/api/admin/youtube/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,6 +151,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
           theme: result.title,
           siteUrl,
           withAudio: includeAudio,
+          scriptTexts,
         }),
       });
 
@@ -423,7 +450,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                 Renderizar Vídeo MP4 com Narração (1080p Full HD)
               </h3>
               <p style={{ margin: "0 0 10px 0", color: "#cbd5e1", fontSize: "0.9rem" }}>
-                Gera o vídeo completo estilo Creatify com narração de voz natural sincronizada (Piper TTS pt-BR), transições suaves e sem marcas d&apos;água.
+                Gera o vídeo completo estilo TechZone com roteiro personalizado e narração oficial sincronizada pelo Google Gemini Audio API.
               </p>
               <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.9rem", color: "#f8fafc", background: "rgba(255,255,255,0.1)", padding: "6px 12px", borderRadius: "10px" }}>
                 <input
@@ -516,7 +543,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                             🎉 Seu vídeo com narração está pronto em Full HD!
                           </span>
                           <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
-                            Resolução 1920x1080 • Áudio AAC (Piper TTS pt-BR) • Sem marcas d&apos;água • Transições suaves
+                            Resolução 1920x1080 • Áudio AAC (Google Gemini Audio API) • Sem marcas d&apos;água • Transições suaves
                           </span>
                         </div>
 

@@ -682,6 +682,7 @@ export async function generateVideo({
   canal = 'Achadinhos do Dia',
   siteUrl = 'https://achadinhosdodia.com.br',
   withAudio = true,
+  scriptTexts: customScriptTexts,
   outputPath,
   onProgress,
 }) {
@@ -708,51 +709,68 @@ export async function generateVideo({
     })
   );
 
-  // 1. Textos da narração humanizada (Prompt Mestre)
-  const highlightIdx = Math.ceil(products.length / 2);
-  const scriptTexts = [];
+  // 1. Textos da narração inteligente com prioridade para roteiro dinâmico do Gemini
+  let scriptTexts = [];
 
-  const cheapest = [...products].sort((a, b) => (Number(a.price) || 999) - (Number(b.price) || 999))[0];
-  const minPriceSpoken = formatSpokenPrice(cheapest?.price);
+  if (Array.isArray(customScriptTexts) && customScriptTexts.length === products.length + 2) {
+    // Usa exatamente os textos personalizados gerados pelo Gemini AI
+    scriptTexts = customScriptTexts;
+  } else {
+    // Identifica o produto campeão em vendas da Shopee
+    const sortedBySales = [...products].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+    const champProduct = sortedBySales[0];
+    const champIdx = products.indexOf(champProduct) + 1;
+    const champShort = getShortName(champProduct?.name);
+    const champSalesStr = champProduct?.sales ? `mais de ${champProduct.sales} unidades vendidas` : 'milhares de pedidos';
 
-  // Abertura dinâmica de 0 a 7s
-  const catLabel = categoria || 'a sua casa';
-  scriptTexts.push(
-    `Separei 10 achadinhos para ${catLabel} que podem facilitar bastante o seu dia a dia — e tem opções a partir de ${minPriceSpoken}! Dá uma olhada no número ${highlightIdx}, porque ele é muito versátil e útil. Vamos conferir?`
-  );
+    const cheapest = [...products].sort((a, b) => (Number(a.price) || 999) - (Number(b.price) || 999))[0];
+    const minPriceSpoken = formatSpokenPrice(cheapest?.price);
 
-  // Produtos (18 a 22s por item, situacional e natural)
-  for (let i = 0; i < products.length; i++) {
-    const p = products[i];
-    const num = i + 1;
-    const shortTitle = getShortName(p.name);
-    const benefit = getBenefit(p.name);
-    const priceSpoken = formatSpokenPrice(p.price);
+    // Abertura dinâmica estilo TechZone
+    const catLabel = categoria || 'a sua rotina';
+    scriptTexts.push(
+      `E aí pessoal, sejam bem-vindos! Hoje selecionamos na Shopee os achadinhos mais úteis e surpreendentes para ${catLabel}. Tem opções a partir de apenas ${minPriceSpoken}, e segura aí porque o item número ${champIdx}, o ${champShort}, já passou de ${champSalesStr}! Bora conferir cada um deles!`
+    );
 
-    const situationalHooks = [
-      `Pra começar, sabe aquela praticidade que todo mundo procura na rotina? É o que você encontra no ${shortTitle}.`,
-      `O segundo achadinho resolve um problema comum de quem gosta de manter as coisas em ordem: o ${shortTitle}.`,
-      `Agora, se você preza por conforto sem precisar gastar muito, dá uma olhada no ${shortTitle}.`,
-      `Para quem quer economizar tempo nas tarefas do dia a dia, essa próxima descoberta é bem interessante: ${shortTitle}.`,
-      `Chegamos ao quinto item, e esse aqui chama atenção pela versatilidade: é o ${shortTitle}.`,
-      `Mudando um pouco o ambiente, esse acessório ajuda a aproveitar muito melhor o espaço: ${shortTitle}.`,
-      `Para quem não abre mão de funcionalidade e bom acabamento, o número 7 é o ${shortTitle}.`,
-      `Se a sua prioridade é custo benefício com utilidade real, veja o que achamos: ${shortTitle}.`,
-      `Quase no final da seleção, esse penúltimo achadinho se destaca por um detalhe de design bem pensado: ${shortTitle}.`,
-      `E para fechar a nossa seleção de hoje com uma descoberta muito prática, temos o ${shortTitle}.`,
-    ];
+    // Produtos com narrativa viva e dinâmica
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      const num = i + 1;
+      const isChamp = num === champIdx;
+      const shortTitle = getShortName(p.name);
+      const benefit = getBenefit(p.name);
+      const priceSpoken = formatSpokenPrice(p.price);
+      const salesText = p.sales ? `são mais de ${p.sales >= 1000 ? Math.floor(p.sales / 1000) * 1000 : p.sales} vendas confirmadas` : 'com alta procura';
 
-    const hook = situationalHooks[Math.min(i, situationalHooks.length - 1)];
-    const salesText = p.sales ? `são mais de ${p.sales >= 1000 ? Math.floor(p.sales / 1000) * 1000 : p.sales} vendas registradas com avaliação positiva.` : 'com aprovação positiva de quem já comprou.';
-    const discountText = p.discount ? `, com ${p.discount}% de desconto anunciado` : '';
-    const text = `${hook} ${benefit} Na Shopee, ele conta com boa aprovação e ${salesText} O preço confirmado no anúncio é de ${priceSpoken}${discountText}. O link oficial com todas as opções é o número ${num} na descrição.`;
-    scriptTexts.push(text);
+      if (isChamp) {
+        scriptTexts.push(
+          `E chegamos no grande campeão de vendas da Shopee: o ${shortTitle}! Esse é aquele item que viralizou de verdade por resolver um problemão com muita facilidade. Ele já conta com ${salesText} e está saindo por apenas ${priceSpoken}. O link com desconto garantido é o número ${num} na descrição!`
+        );
+      } else {
+        const situationalHooks = [
+          `Pra começar com tudo, olha que sacada genial: o ${shortTitle}.`,
+          `O segundo item resolve aquela dor de cabeça na rotina: é o ${shortTitle}.`,
+          `Agora, se você procura custo-benefício de verdade, dá uma olhada no ${shortTitle}.`,
+          `Para quem quer economizar tempo e espaço, essa descoberta é perfeita: ${shortTitle}.`,
+          `Chegamos ao item número cinco, que impressiona pela versatilidade: o ${shortTitle}.`,
+          `Dando sequência nos achadinhos mais buscados, veja esse acessório: ${shortTitle}.`,
+          `Para quem não abre mão de qualidade e praticidade, o número 7 é o ${shortTitle}.`,
+          `Olha só que utilidade incrível encontramos na Shopee: o ${shortTitle}.`,
+          `Quase no final da seleção, esse produto aqui surpreende pelo acabamento: ${shortTitle}.`,
+          `E para fechar a nossa lista de hoje com chave de ouro, temos o ${shortTitle}.`,
+        ];
+        const hook = situationalHooks[Math.min(i, situationalHooks.length - 1)];
+        scriptTexts.push(
+          `${hook} ${benefit} Na Shopee ele tem excelente aprovação dos compradores e ${salesText}. O preço confirmado no anúncio é de apenas ${priceSpoken}. O link oficial com todas as opções é o número ${num} na descrição.`
+        );
+      }
+    }
+
+    // Encerramento TechZone
+    scriptTexts.push(
+      `E aí, qual desses achadinhos você mais curtiu? Deixa aqui nos comentários! Não esquece de deixar o seu like e se inscrever no canal para mais descobertas inteligentes como essa. Todos os links oficiais estão organizados na descrição. Até a próxima!`
+    );
   }
-
-  // Encerramento natural (~8s)
-  scriptTexts.push(
-    `E aí, qual desses achadinhos você levaria para casa? Me conta nos comentários! Se curtiu a seleção, se inscreve no canal porque sempre tem novas descobertas úteis por aqui. Todos os links oficiais estão organizados na descrição. Até a próxima!`
-  );
 
   // 2. Síntese de áudio (Edge TTS Antonio Neural TechZone + Fallback Piper)
   const audioFiles = [];
@@ -934,6 +952,7 @@ if (process.argv[1]?.endsWith('generate_video.mjs')) {
   let siteUrl = 'https://achadinhosdodia.com.br';
   let canal = 'Achadinhos do Dia';
   let withAudio = !args.includes('--no-audio');
+  let scriptTexts = null;
 
   if (inputJson && existsSync(inputJson)) {
     const payload = JSON.parse(readFileSync(inputJson, 'utf-8'));
@@ -943,6 +962,7 @@ if (process.argv[1]?.endsWith('generate_video.mjs')) {
     siteUrl = payload.siteUrl || siteUrl;
     canal = payload.canal || canal;
     if (payload.withAudio !== undefined) withAudio = payload.withAudio;
+    if (payload.scriptTexts) scriptTexts = payload.scriptTexts;
   } else {
     slug = get('--slug') || 'calcados-femininos';
     const n = parseInt(get('--n') || '5', 10);
@@ -964,6 +984,7 @@ if (process.argv[1]?.endsWith('generate_video.mjs')) {
     canal,
     siteUrl,
     withAudio,
+    scriptTexts,
     outputPath: outFile,
     onProgress: (m) => console.log(' >', m),
   });
