@@ -31,6 +31,7 @@ interface ScriptResult {
   tags: string[];
   products: {
     id?: string;
+    itemId?: string;
     slug?: string;
     categoryId?: string;
     categoryName?: string;
@@ -102,6 +103,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
   // Estado de exclusão e substituição automática na mesma categoria
   const [replacingProductIndex, setReplacingProductIndex] = useState<number | null>(null);
   const [replaceNotice, setReplaceNotice] = useState<string | null>(null);
+  const [discardedIds, setDiscardedIds] = useState<string[]>([]);
 
   const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
 
@@ -110,6 +112,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
     setError("");
     setResult(null);
     setVideoResult(null);
+    setDiscardedIds([]);
 
     const body: any = {
       siteUrl,
@@ -229,21 +232,36 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
     }
   }
 
-  async function handleReplaceProduct(index: number) {
+  async function handleReplaceProduct(index: number, newGenre?: string) {
     if (!result || !result.products[index]) return;
     const prodToRemove = result.products[index];
     setReplacingProductIndex(index);
     setReplaceNotice(null);
 
+    // Acumula IDs e dados do produto removido no histórico da sessão
+    const toBlacklist = [
+      prodToRemove.id,
+      prodToRemove.itemId,
+      prodToRemove.slug,
+      prodToRemove.name,
+    ].filter(Boolean).map(String);
+
+    const updatedDiscarded = Array.from(new Set([...discardedIds, ...toBlacklist]));
+    setDiscardedIds(updatedDiscarded);
+
     try {
+      const allProductIds = result.products.map((p: any) => p.id).filter(Boolean).map(String);
+      const allProductSlugs = result.products.map((p: any) => p.slug).filter(Boolean).map(String);
+
       const res = await fetch("/api/admin/youtube/replace-product", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productToRemove: prodToRemove,
-          currentProductIds: result.products.map((p: any) => p.id).filter(Boolean),
-          currentProductSlugs: result.products.map((p: any) => p.slug).filter(Boolean),
+          currentProductIds: Array.from(new Set([...allProductIds, ...updatedDiscarded])),
+          currentProductSlugs: Array.from(new Set([...allProductSlugs, ...updatedDiscarded])),
           positionIndex: index,
+          targetGenre: newGenre && newGenre !== "mesma" ? newGenre : undefined,
           siteUrl,
           theme: result.title,
           allProducts: result.products,
@@ -253,6 +271,12 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao substituir produto");
+
+      // Adiciona o produto recebido também para nunca mais ser repetido nesta sessão
+      if (data.replacement) {
+        const replacementKeys = [data.replacement.id, data.replacement.itemId, data.replacement.slug].filter(Boolean).map(String);
+        setDiscardedIds((prev) => Array.from(new Set([...prev, ...replacementKeys])));
+      }
 
       setResult((prev) => {
         if (!prev) return prev;
@@ -279,7 +303,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
       }
 
       setReplaceNotice(
-        `Produto #${index + 1} excluído e substituído com sucesso por "${data.replacement.name.slice(0, 45)}..." da categoria ${data.categoryName}!`
+        `Produto #${index + 1} substituído com sucesso por "${data.replacement.name.slice(0, 42)}..." da categoria ${data.categoryName}!`
       );
     } catch (err: any) {
       alert("Erro ao excluir e substituir produto: " + (err.message || "Tente novamente."));
@@ -971,11 +995,12 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                     </div>
 
                     <div>
-                      {/* Botão Secundário de Troca Rápida */}
-                      <div style={{ padding: "0 0.85rem 0.6rem 0.85rem" }}>
+                      {/* Botões de Troca de Categoria / Nicho */}
+                      <div style={{ padding: "0 0.85rem 0.6rem 0.85rem", display: "flex", flexDirection: "column", gap: "5px" }}>
                         <button
-                          onClick={() => handleReplaceProduct(i)}
+                          onClick={() => handleReplaceProduct(i, "mesma")}
                           disabled={isReplacing || replacingProductIndex !== null}
+                          title="Buscar outro produto diferente da mesma categoria"
                           style={{
                             width: "100%",
                             padding: "6px 8px",
@@ -995,6 +1020,39 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                           <RefreshCw size={11} className={isReplacing ? "animate-spin" : ""} />
                           Trocar por outro da categoria
                         </button>
+
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleReplaceProduct(i, e.target.value);
+                              e.target.value = "";
+                            }
+                          }}
+                          disabled={isReplacing || replacingProductIndex !== null}
+                          title="Substituir este produto por outro nicho ou tema específico"
+                          style={{
+                            width: "100%",
+                            padding: "5px 8px",
+                            borderRadius: "8px",
+                            border: "1px solid #e2e8f0",
+                            background: "#fff",
+                            color: "#334155",
+                            fontSize: "0.72rem",
+                            fontWeight: 600,
+                            cursor: isReplacing || replacingProductIndex !== null ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          <option value="" disabled>🎯 Trocar por nicho...</option>
+                          <option value="cozinha">🍳 Cozinha & Utensílios</option>
+                          <option value="tecnologia">📱 Tecnologia & Gadgets</option>
+                          <option value="organizacao">🧹 Casa & Organização</option>
+                          <option value="beleza">💄 Beleza & Skincare</option>
+                          <option value="moda">👟 Moda & Calçados</option>
+                          <option value="infantil">🧸 Infantil & Brinquedos</option>
+                          <option value="ferramentas">🛠️ Ferramentas & Auto</option>
+                          <option value="fitness">💪 Fitness & Saúde</option>
+                        </select>
                       </div>
 
                       <div style={{ padding: "0.6rem 0.85rem 0.85rem 0.85rem", borderTop: "1px solid #f1f5f9" }}>

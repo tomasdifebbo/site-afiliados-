@@ -8,6 +8,7 @@ import {
 import {
   generateDescription,
   generateTags,
+  GENRE_CONFIGS,
 } from "@/app/api/admin/youtube/generate-script/route";
 
 export async function POST(req: NextRequest) {
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
       currentProductIds = [],
       currentProductSlugs = [],
       positionIndex = 0,
+      targetGenre,
       siteUrl = "https://achadinhosdodia.com.br",
       theme = "10 Achadinhos Incríveis da Shopee",
       allProducts = [],
@@ -36,56 +38,130 @@ export async function POST(req: NextRequest) {
     const excludedIds: string[] = [
       ...currentProductIds,
       productToRemove.id,
-    ].filter(Boolean);
+      productToRemove.itemId,
+    ].map(String).filter(Boolean);
 
     const excludedSlugs: string[] = [
       ...currentProductSlugs,
       productToRemove.slug,
-    ].filter(Boolean);
+      productToRemove.id,
+      productToRemove.itemId,
+    ].map(String).filter(Boolean);
 
     let candidate = null;
     let targetCategoryId = productToRemove.categoryId;
+    let targetCategoryName = productToRemove.categoryName || "Achadinhos";
 
-    // 1. Se não tiver categoryId diretamente no objeto, busca o produto no banco para achar a categoria
-    if (!targetCategoryId && (productToRemove.id || productToRemove.slug)) {
-      const orig = await prisma.product.findFirst({
-        where: {
-          OR: [
-            productToRemove.id ? { id: productToRemove.id } : undefined,
-            productToRemove.slug ? { slug: productToRemove.slug } : undefined,
-          ].filter(Boolean) as any,
-        },
-        include: { category: true },
+    // 1. Determina a palavra-chave de busca
+    let searchKeyword = "";
+    if (targetGenre && targetGenre !== "mesma" && GENRE_CONFIGS[targetGenre]) {
+      searchKeyword = GENRE_CONFIGS[targetGenre].keywords;
+      targetCategoryName = GENRE_CONFIGS[targetGenre].label;
+    } else {
+      searchKeyword =
+        productToRemove.categoryName?.replace(/&/g, " ") ||
+        productToRemove.name
+          ?.split(/\s+/)
+          .filter((w: string) => w.length >= 4)
+          .slice(0, 3)
+          .join(" ") ||
+        "achadinhos utilidades";
+    }
+
+    // Raízes do título do produto sendo removido para evitar trocar por outro idêntico
+    const removeWords = (productToRemove.name || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w: string) => w.length >= 4 && !["para", "com", "sem", "novo", "mini"].includes(w));
+
+    // 2. PRIORIDADE 1: Busca AO VIVO na Shopee Open API (Mecanismo Live Search)
+    // Traz produtos reais mais vendidos sem limite de estoque
+    try {
+      const liveRes = await searchProductOffers({
+        keyword: searchKeyword,
+        sortType: 2, // mais vendidos
+        limit: 45,
       });
-      if (orig?.categoryId) {
-        targetCategoryId = orig.categoryId;
+
+      if (liveRes.nodes && liveRes.nodes.length > 0) {
+        const liveMatch = liveRes.nodes.find((node) => {
+          const idStr = String(node.itemId);
+          if (excludedIds.includes(idStr) || excludedSlugs.includes(idStr)) return false;
+
+          const nodeWords = node.productName
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9\s]/g, " ")
+            .split(/\s+/);
+
+          // Se tiver candidatos suficientes, evita trocar produto por outro com o mesmo conceito
+          const sharedRoots = removeWords.filter((w: string) => nodeWords.includes(w));
+          if (sharedRoots.length >= 2 && liveRes.nodes.length > 5) return false;
+
+          return true;
+        });
+
+        if (liveMatch) {
+          const priceNum = parseFloat(liveMatch.price) || 0;
+          const origPrice = liveMatch.priceMax ? parseFloat(liveMatch.priceMax) : null;
+          candidate = {
+            id: String(liveMatch.itemId),
+            itemId: String(liveMatch.itemId),
+            slug: String(liveMatch.itemId),
+            categoryId: targetCategoryId || "shopee-live",
+            category: { name: targetCategoryName },
+            name: liveMatch.productName,
+            price: priceNum,
+            ratingStar: parseFloat(liveMatch.ratingStar) || 4.8,
+            sales: liveMatch.sales || 0,
+            discountRate: liveMatch.priceDiscountRate || null,
+            imageUrl: liveMatch.imageUrl,
+            affiliateLink: liveMatch.offerLink || liveMatch.productLink,
+          } as any;
+        }
+      }
+    } catch (liveErr: any) {
+      console.warn("Aviso: Live Shopee Search em replace-product falhou, usando banco local:", liveErr.message);
+    }
+
+    // 3. PRIORIDADE 2: Se a Live Search da Shopee não retornou, busca no banco local
+    if (!candidate) {
+      if (!targetCategoryId && (productToRemove.id || productToRemove.slug)) {
+        const orig = await prisma.product.findFirst({
+          where: {
+            OR: [
+              productToRemove.id ? { id: productToRemove.id } : undefined,
+              productToRemove.slug ? { slug: productToRemove.slug } : undefined,
+            ].filter(Boolean) as any,
+          },
+          include: { category: true },
+        });
+        if (orig?.categoryId) targetCategoryId = orig.categoryId;
+      }
+
+      if (targetCategoryId && targetCategoryId !== "shopee-live") {
+        candidate = await prisma.product.findFirst({
+          where: {
+            categoryId: targetCategoryId,
+            id: { notIn: excludedIds },
+            slug: { notIn: excludedSlugs },
+            price: { gt: 0 },
+            imageUrl: { not: "" },
+          },
+          include: { category: true },
+          orderBy: [{ sales: "desc" }, { ratingStar: "desc" }],
+        });
       }
     }
 
-    // 2. Busca na mesma categoria por maior número de vendas e avaliações positivas
-    if (targetCategoryId) {
-      candidate = await prisma.product.findFirst({
-        where: {
-          categoryId: targetCategoryId,
-          id: { notIn: excludedIds },
-          slug: { notIn: excludedSlugs },
-          price: { gt: 0 },
-          imageUrl: { not: "" },
-        },
-        include: { category: true },
-        orderBy: [
-          { sales: "desc" },
-          { ratingStar: "desc" },
-        ],
-      });
-    }
-
-    // 3. Se não achou na categoria ou não havia categoryId, busca por nome da categoria
+    // 4. Se ainda não achou, busca no banco por categoria similar
     if (!candidate && productToRemove.categoryName) {
       const cat = await prisma.category.findFirst({
-        where: {
-          name: { contains: productToRemove.categoryName },
-        },
+        where: { name: { contains: productToRemove.categoryName } },
       });
       if (cat) {
         candidate = await prisma.product.findFirst({
@@ -97,65 +173,12 @@ export async function POST(req: NextRequest) {
             imageUrl: { not: "" },
           },
           include: { category: true },
-          orderBy: [
-            { sales: "desc" },
-            { ratingStar: "desc" },
-          ],
-        });
-      }
-    }
-
-    // 3.5. Busca na Shopee Live Search API pelo mesmo gênero / categoria
-    if (!candidate && (productToRemove.categoryName || productToRemove.name)) {
-      try {
-        const kw = productToRemove.categoryName || productToRemove.name.split(" ").slice(0, 3).join(" ");
-        const liveRes = await searchProductOffers({ keyword: kw, sortType: 2, limit: 10 });
-        const liveCandidate = (liveRes.nodes || []).find(
-          (n) => !excludedIds.includes(String(n.itemId)) && !excludedSlugs.includes(String(n.itemId))
-        );
-        if (liveCandidate) {
-          const priceNum = parseFloat(liveCandidate.price) || 0;
-          candidate = {
-            id: String(liveCandidate.itemId),
-            slug: String(liveCandidate.itemId),
-            categoryId: targetCategoryId || "shopee-live",
-            category: { name: productToRemove.categoryName || "Achadinhos" },
-            name: liveCandidate.productName,
-            price: priceNum,
-            ratingStar: parseFloat(liveCandidate.ratingStar) || 4.8,
-            sales: liveCandidate.sales || 0,
-            discountRate: liveCandidate.priceDiscountRate || null,
-            imageUrl: liveCandidate.imageUrl,
-            affiliateLink: liveCandidate.offerLink || liveCandidate.productLink,
-          } as any;
-        }
-      } catch {}
-    }
-
-    // 4. Se ainda não achou, busca por palavra-chave do produto no banco
-    if (!candidate && productToRemove.name) {
-      const words = productToRemove.name
-        .split(/\s+/)
-        .filter((w: string) => w.length >= 4)
-        .slice(0, 3);
-
-      for (const word of words) {
-        candidate = await prisma.product.findFirst({
-          where: {
-            name: { contains: word },
-            id: { notIn: excludedIds },
-            slug: { notIn: excludedSlugs },
-            price: { gt: 0 },
-            imageUrl: { not: "" },
-          },
-          include: { category: true },
           orderBy: [{ sales: "desc" }, { ratingStar: "desc" }],
         });
-        if (candidate) break;
       }
     }
 
-    // 5. Fallback final: Top vendas geral que não esteja na lista
+    // 5. Se ainda não achou, top vendas geral que não esteja na lista negra
     if (!candidate) {
       candidate = await prisma.product.findFirst({
         where: {
