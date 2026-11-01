@@ -396,7 +396,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                 style={{ width: "100%", padding: "0.65rem 1rem", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "0.9rem" }}
               />
               <span style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "4px", display: "block" }}>
-                💡 O sistema vai carregar o vídeo, identificar os produtos e links da Shopee, baixar as fotos em alta definição e montar o roteiro no estilo TechZone!
+                💡 O sistema vai carregar o vídeo, identificar os produtos e links da Shopee, baixar as fotos em alta definição e montar o roteiro dinâmico do canal Achadinhos do Dia!
               </span>
             </div>
           )}
@@ -469,7 +469,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
             <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
             {loading
               ? source === "youtube"
-                ? "Identificando produtos e gerando roteiro TechZone..."
+                ? "Analisando produtos e gerando roteiro do Achadinhos do Dia..."
                 : "Gerando roteiro com IA..."
               : source === "youtube"
               ? "🔍 Identificar Produtos do Vídeo e Gerar Roteiro"
@@ -525,7 +525,7 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                 Renderizar Vídeo MP4 com Narração (1080p Full HD)
               </h3>
               <p style={{ margin: "0 0 10px 0", color: "#cbd5e1", fontSize: "0.9rem" }}>
-                Gera o vídeo completo estilo TechZone com roteiro personalizado e narração oficial sincronizada pelo Google Gemini Audio API.
+                Gera o vídeo completo do canal Achadinhos do Dia com roteiro humanizado, análise individual dos produtos e narração sincronizada.
               </p>
               <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.9rem", color: "#f8fafc", background: "rgba(255,255,255,0.1)", padding: "6px 12px", borderRadius: "10px" }}>
                 <input

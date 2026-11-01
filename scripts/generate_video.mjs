@@ -148,9 +148,18 @@ function formatSpokenPrice(price) {
 
 function sanitizeForTTS(text) {
   return (text || '')
+    // Remove screenplay directions in brackets [like this] and parentheses (like this)
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\([^\)]*\)/g, ' ')
+    // Remove emojis
     .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}]/gu, '')
     .replace(/[\uD800-\uDFFF]/g, '')
-    .replace(/[#*_~`\[\]()]/g, '')
+    // Remove markdown symbols
+    .replace(/[#*_~`]/g, '')
+    // Remove accidental prompt directions or prefixes
+    .replace(/fale em portugu[eê]s do brasil[^:]*:\s*/gi, '')
+    .replace(/\b(narração|locutor|apresentador|abertura|encerramento|cena|visual|áudio|edição)\s*:\s*/gi, '')
+    // Normalize spacing
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -259,7 +268,7 @@ async function synthesizeWithGeminiTTS(text, outWavPath, apiKey) {
             {
               parts: [
                 {
-                  text: `Fale em português do Brasil com entonação entusiasmada, clara e profissional de apresentador do YouTube:\n\n${clean}`,
+                  text: clean,
                 },
               ],
             },
@@ -732,10 +741,10 @@ export async function generateVideo({
     const cheapest = [...products].sort((a, b) => (Number(a.price) || 999) - (Number(b.price) || 999))[0];
     const minPriceSpoken = formatSpokenPrice(cheapest?.price);
 
-    // Abertura dinâmica estilo TechZone
+    // Abertura dinâmica Achadinhos do Dia
     const catLabel = categoria || 'a sua rotina';
     scriptTexts.push(
-      `E aí pessoal, sejam bem-vindos! Hoje selecionamos na Shopee os achadinhos mais úteis e surpreendentes para ${catLabel}. Tem opções a partir de apenas ${minPriceSpoken}, e segura aí porque o item número ${champIdx}, o ${champShort}, já passou de ${champSalesStr}! Bora conferir cada um deles!`
+      `E aí pessoal, sejam muito bem-vindos ao Achadinhos do Dia! Hoje selecionamos na Shopee os achadinhos mais úteis e surpreendentes para ${catLabel}. Tem opções a partir de apenas ${minPriceSpoken}, e segura aí porque o item número ${champIdx}, o ${champShort}, já passou de ${champSalesStr}! Bora conferir cada um deles!`
     );
 
     // Produtos com narrativa viva e dinâmica
@@ -772,9 +781,9 @@ export async function generateVideo({
       }
     }
 
-    // Encerramento TechZone
+    // Encerramento Achadinhos do Dia
     scriptTexts.push(
-      `E aí, qual desses achadinhos você mais curtiu? Deixa aqui nos comentários! Não esquece de deixar o seu like e se inscrever no canal para mais descobertas inteligentes como essa. Todos os links oficiais estão organizados na descrição. Até a próxima!`
+      `E aí, qual desses achadinhos você mais curtiu? Deixa aqui nos comentários do Achadinhos do Dia! Não esquece de deixar o seu like e se inscrever no canal para não perder os próximos achadinhos. Todos os links oficiais estão organizados na descrição. Até a próxima!`
     );
   }
 

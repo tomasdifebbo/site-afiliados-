@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     } else if (flashDeals) {
       title = "10 Super Ofertas Relâmpago da Shopee de Hoje com os Maiores Descontos";
       theme = "Ofertas Relâmpago Shopee";
-      products = await prisma.product.findMany({
+      const candidates = await prisma.product.findMany({
         where: { price: { gt: 0 }, discountRate: { gte: 15 } },
         include: { category: true },
         orderBy: [
@@ -28,16 +28,19 @@ export async function POST(req: NextRequest) {
           { sales: "desc" },
           { priceUpdatedAt: "desc" },
         ],
-        take: 10,
+        take: 60,
       });
-      if (products.length < 5) {
-        products = await prisma.product.findMany({
-          where: { price: { gt: 0 } },
-          include: { category: true },
-          orderBy: [{ sales: "desc" }],
-          take: 10,
-        });
-      }
+      products = selectDiverseProducts(
+        candidates.length >= 5
+          ? candidates
+          : await prisma.product.findMany({
+              where: { price: { gt: 0 } },
+              include: { category: true },
+              orderBy: [{ sales: "desc" }],
+              take: 60,
+            }),
+        10
+      );
     } else if (postId) {
       const post = await prisma.post.findUnique({ where: { id: postId } });
       if (!post) return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
@@ -45,31 +48,34 @@ export async function POST(req: NextRequest) {
       const slugMatches = [...post.content.matchAll(/href="\/go\/([^"?]+)/g)];
       const slugs = [...new Set(slugMatches.map((m) => m[1]))];
       if (slugs.length > 0) {
-        products = await prisma.product.findMany({
+        const postProducts = await prisma.product.findMany({
           where: { slug: { in: slugs } },
           include: { category: true },
-          take: 12,
+          take: 20,
         });
+        products = selectDiverseProducts(postProducts, 10);
       }
     } else if (categoryId) {
       const category = await prisma.category.findUnique({ where: { id: categoryId } });
       if (!category) return NextResponse.json({ error: "Categoria não encontrada" }, { status: 404 });
       theme = category.name;
       title = `10 Achadinhos da Shopee — ${category.name}`;
-      products = await prisma.product.findMany({
+      const catProducts = await prisma.product.findMany({
         where: { categoryId, ratingStar: { gte: 4 }, price: { gt: 0 } },
         include: { category: true },
         orderBy: { sales: "desc" },
-        take: 10,
+        take: 40,
       });
+      products = selectDiverseProducts(catProducts, 10);
     } else {
       title = "10 Achadinhos Incríveis da Shopee que Merecem Entrar no seu Radar";
-      products = await prisma.product.findMany({
+      const topProducts = await prisma.product.findMany({
         where: { ratingStar: { gte: 4 }, price: { gt: 0 } },
         include: { category: true },
         orderBy: { sales: "desc" },
-        take: 10,
+        take: 60,
       });
+      products = selectDiverseProducts(topProducts, 10);
     }
 
     if (products.length === 0) {
@@ -123,6 +129,61 @@ export async function POST(req: NextRequest) {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
+
+function selectDiverseProducts(candidates: any[], targetCount = 10): any[] {
+  const selected: any[] = [];
+  const seenKeywords = new Set<string>();
+  const categoryCount = new Map<string, number>();
+
+  function getRoots(name: string): string[] {
+    const stopwords = new Set([
+      "para", "com", "sem", "kit", "unid", "unidades", "pecas", "peça",
+      "pote", "potes", "jogo", "mini", "novo", "nova", "alta", "super",
+      "promocao", "oferta", "shopee", "envio", "pronta", "entrega", "frete",
+      "gratis", "preto", "branco", "rosa", "azul", "original", "todos", "mais"
+    ]);
+    return name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !stopwords.has(w));
+  }
+
+  for (const prod of candidates) {
+    if (selected.length >= targetCount) break;
+    const catId = prod.categoryId || "general";
+    const currentCatCount = categoryCount.get(catId) || 0;
+    // Evita encher o vídeo com produtos da mesma categoria quando há alternativas
+    if (currentCatCount >= 2 && candidates.length > 20) {
+      continue;
+    }
+
+    const roots = getRoots(prod.name);
+    // Evita produtos quase idênticos (ex: 2 relógios infantis, 2 luminárias solares, 2 ganchos)
+    const isDuplicateConcept = roots.slice(0, 3).some((r) => seenKeywords.has(r));
+    if (isDuplicateConcept && candidates.length > 20) {
+      continue;
+    }
+
+    selected.push(prod);
+    categoryCount.set(catId, currentCatCount + 1);
+    roots.forEach((r) => seenKeywords.add(r));
+  }
+
+  // Se faltar para fechar 10, completa com os melhores restantes não adicionados
+  if (selected.length < targetCount) {
+    for (const prod of candidates) {
+      if (selected.length >= targetCount) break;
+      if (!selected.some((p) => p.id === prod.id)) {
+        selected.push(prod);
+      }
+    }
+  }
+
+  return selected.slice(0, targetCount);
+}
 
 function fmt(price: number | null) {
   if (!price) return "preço interessante";

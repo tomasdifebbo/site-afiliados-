@@ -43,9 +43,11 @@ export async function generateTechZoneScriptWithGemini(params: {
   const theme = params.theme || "Achadinhos Incríveis da Shopee";
   const siteUrl = params.siteUrl || "https://achadinhosdodia.com.br";
 
-  // Identificação prévia dos dados para guiar o Gemini
-  const sortedBySales = [...products].sort((a, b) => (b.sales || 0) - (a.sales || 0));
-  const topSalesItem = sortedBySales[0];
+  // Identificação inteligente do produto destaque para guiar o Gemini
+  // Prioriza produtos com valor percebido real (evita escolher gancho plástico de R$ 0,99 como herói do vídeo)
+  const candidateChampions = [...products].filter((p) => (p.price || 0) >= 12 && !/gancho|cola|adesivo/i.test(p.name));
+  const championPool = candidateChampions.length > 0 ? candidateChampions : products;
+  const topSalesItem = [...championPool].sort((a, b) => (b.sales || 0) - (a.sales || 0))[0] || products[0];
 
   const sortedByPrice = [...products]
     .filter((p) => (p.price || 0) > 0)
@@ -54,7 +56,7 @@ export async function generateTechZoneScriptWithGemini(params: {
 
   const minPriceFormatted = cheapestItem?.price
     ? `R$ ${cheapestItem.price.toFixed(2).replace(".", ",")}`
-    : "menos de R$ 20";
+    : "menos de R$ 15";
 
   const productsSummary = products.map((p, idx) => ({
     pos: idx + 1,
@@ -65,30 +67,35 @@ export async function generateTechZoneScriptWithGemini(params: {
     discount: p.discountRate ? `${p.discountRate}% OFF` : null,
   }));
 
-  const systemPrompt = `Você é o roteirista sênior do canal TECHZONE (estilo TechZone Brasil / TechZone Gadgets).
-Sua marca registrada é:
-- Tom ENERGÉTICO, DINÂMICO, CURIOSO e BEM HUMORADO.
-- Você NÃO lê listas mecânicas nem usa frases engessadas de robô.
-- Você IDENTIFICA o que cada produto realmente faz na vida real (o que resolve, por que as pessoas estão comprando aos milhares na Shopee).
-- Você CRIA GANCHOS DE RETENÇÃO: no início do vídeo, você avisa a audiência que tem um produto campeão de vendas absoluto que eles precisam ver.
-- Para cada produto: você explica o funcionamento prático como se estivesse mostrando na mão, menciona as vendas impressionantes na Shopee e o preço com naturalidade.
+  const systemPrompt = `Você é o roteirista sênior e apresentador oficial do canal ACHADINHOS DO DIA.
+SEU CANAL SE CHAMA EXCLUSIVAMENTE: "ACHADINHOS DO DIA".
+NUNCA use "TechZone", "Tech Zone" ou qualquer outro nome de canal.
+
+Sua marca registrada no Achadinhos do Dia é:
+- Tom ENERGÉTICO, DINÂMICO, CURIOSO e BEM HUMORADO (ritmo rápido de retenção para o YouTube).
+- Você NÃO lê títulos mecânicos da Shopee nem usa frases engessadas de robô.
+- PRÉ-ANÁLISE DOS PRODUTOS: Você identifica exatamente para que serve cada produto na vida real (a utilidade prática, o problema cotidiano que ele resolve, por que as pessoas estão comprando).
+- PRODUTO DESTAQUE (HERÓI): No início do vídeo, você faz um gancho de curiosidade sobre o produto mais interessante da lista para segurar a audiência até o final.
+- ITENS SUPER BARATOS: Se houver produtos de preço muito baixo (abaixo de R$ 5), destaque pelo ângulo da pechincha inteligente ("custa menos que um pão na padaria"), e não como se fosse um super equipamento.
+- LIMPEZA ABSOLUTA DE ÁUDIO: O campo "narration" será lido diretamente por voz neural. NUNCA coloque rubricas de teatro, marcações de direção ou comandos de como atuar (NUNCA escreva "fale com entusiasmo", "[narração]", "locutor:", "(voz animada)"). Coloque APENAS a fala que sai da boca do apresentador!
 
 ANALISE OS ${products.length} PRODUTOS ABAIXO:
 ${JSON.stringify(productsSummary, null, 2)}
 
-Destaque principal por vendas comprovadas na Shopee: "${topSalesItem?.name || products[0]?.name}".
+Destaque sugerido por apelo e vendas: "${topSalesItem?.name}".
 Menor preço da lista: ${minPriceFormatted}.
 
 INSTRUÇÕES ESTRITAS:
-1. "intro": Uma abertura eletrizante de 10 a 15 segundos estilo TechZone prendendo o público ("Sejam bem-vindos! Hoje garimpamos na Shopee os gadgets e utilidades que estão explodindo em vendas... e o item número X sozinho já vendeu dezenas de milhares de unidades!").
+1. "intro": Uma abertura eletrizante de 10 a 15 segundos prendendo o público:
+   ("E aí pessoal, sejam muito bem-vindos ao Achadinhos do Dia! Hoje garimpamos na Shopee os achadinhos mais úteis e surpreendentes que estão bombando em vendas... e o item número X você não vai acreditar no que ele faz! Fica até o final que tem de tudo a partir de apenas ${minPriceFormatted}!").
 2. "items": Para cada um dos ${products.length} produtos, gere:
    - "pos": número da posição (1 a ${products.length}).
-   - "shortName": nome comercial curto e sonoro (3 a 5 palavras).
-   - "hook": frase de transição/impacto rápida puxando a atenção para ele.
-   - "narration": texto completo da fala daquele item (entre 35 e 60 palavras), falado com naturalidade, citando para que serve o produto, como funciona e por que é genial, terminando indicando o link na descrição.
-   - "isChampion": true apenas para o produto campeão que teve mais destaque/vendas.
-   - "isBestValue": true apenas para a opção mais barata ou custo-benefício.
-3. "outro": Encerramento rápido e animado com CTA para se inscrever no canal e conferir os links oficiais na descrição.
+   - "shortName": nome comercial sonoro e natural (3 a 5 palavras, sem códigos de modelo).
+   - "hook": frase de impacto ou transição direta chamando atenção para ele.
+   - "narration": texto falado completo daquele item (entre 35 e 55 palavras), explicando a utilidade real com entusiasmo e finalizando dizendo que o link oficial com desconto é o número [pos] na descrição. TEXTO PURO FALADO, sem rubricas!
+   - "isChampion": true apenas para o produto herói de maior destaque/curiosidade.
+   - "isBestValue": true apenas para o achadinho mais econômico.
+3. "outro": Encerramento animado com CTA para se inscrever no canal "Achadinhos do Dia" e conferir todos os links na descrição em ordem.
 
 Retorne EXCLUSIVAMENTE um JSON válido com a seguinte estrutura:
 {
@@ -176,7 +183,7 @@ export async function generateSingleItemNarration(params: {
     for (const model of models) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-        const prompt = `Você é o narrador do canal TechZone Brasil no YouTube.
+        const prompt = `Você é o narrador oficial do canal ACHADINHOS DO DIA no YouTube.
 Crie a fala para o produto da posição ${pos} de um vídeo de achadinhos da Shopee:
 - Categoria: ${categoryName}
 - Produto: ${product.name}
@@ -189,7 +196,8 @@ Regras:
 2. Explique brevemente para que serve ou o problema que resolve na vida real.
 3. Mencione as vendas e o preço com naturalidade.
 4. Finalize dizendo que o link oficial com desconto está no número ${pos} na descrição.
-5. Retorne EXCLUSIVAMENTE um JSON:
+5. O campo "narration" deve conter APENAS o texto falado puro, SEM NENHUMA rubrica ou texto entre colchetes [].
+6. Retorne EXCLUSIVAMENTE um JSON:
 {
   "shortName": "${shortName}",
   "hook": "frase rápida chamando a atenção para o item",
@@ -265,18 +273,18 @@ export function buildFormattedScript({
 }): TechZoneScriptResponse {
   const lines: string[] = [];
   lines.push("═══════════════════════════════════════════════════════════════");
-  lines.push(`🎬 ROTEIRO DINÂMICO TECHZONE — ${theme.toUpperCase()}`);
-  lines.push("Narrativa Inteligente por Google Gemini AI | Ritmo TechZone Brasil");
+  lines.push(`🎬 ROTEIRO OFICIAL ACHADINHOS DO DIA — ${theme.toUpperCase()}`);
+  lines.push("Roteiro Dinâmico de Alta Retenção | Canal Achadinhos do Dia");
   lines.push("═══════════════════════════════════════════════════════════════\n");
 
   lines.push("───────────────────────────────────────────────────────────────");
-  lines.push("🔥 ABERTURA DINÂMICA TECHZONE (Gancho de Retenção)");
+  lines.push("🔥 ABERTURA DINÂMICA (Gancho de Retenção)");
   lines.push("───────────────────────────────────────────────────────────────\n");
   lines.push("[NARRAÇÃO DO APRESENTADOR]");
   lines.push(intro + "\n");
   lines.push("[EDIÇÃO VISUAL]");
   lines.push("- Teaser rápido de 2s mostrando o produto campeão em funcionamento.");
-  lines.push("- Trilha moderna estilo TechZone entrando no ritmo da fala.\n");
+  lines.push("- Trilha moderna e animada entrando no ritmo da fala.\n");
 
   const formattedItems: TechZoneScriptItem[] = [];
 
@@ -352,9 +360,9 @@ function buildSmartFallbackScript({
   const champName = topSalesItem?.name ? topSalesItem.name.split(" ").slice(0, 4).join(" ") : "produto campeão";
   const champSales = topSalesItem?.sales ? `mais de ${topSalesItem.sales} pessoas que já garantiram` : "milhares de pedidos";
 
-  const intro = `E aí pessoal, sejam muito bem-vindos! Hoje garimpamos na Shopee os achadinhos mais incríveis e úteis que estão bombando de verdade. E tem de tudo: opções a partir de apenas ${minPriceFormatted}, até o item número ${champPos}, o famoso ${champName}, com ${champSales}! Segura aí porque a lista de hoje vale muito a pena. Bora conferir!`;
+  const intro = `E aí pessoal, sejam muito bem-vindos ao Achadinhos do Dia! Hoje garimpamos na Shopee os achadinhos mais incríveis e úteis que estão bombando de verdade. E tem de tudo: opções a partir de apenas ${minPriceFormatted}, até o item número ${champPos}, o famoso ${champName}, com ${champSales}! Segura aí porque a lista de hoje vale muito a pena. Bora conferir!`;
 
-  const outro = `E aí, qual desses achadinhos você levaria pra casa hoje? Comenta aqui embaixo! Não esquece de deixar o like e se inscrever no canal para não perder os próximos achadinhos. Todos os links oficiais estão organizados na descrição em ordem. Até a próxima!`;
+  const outro = `E aí, qual desses achadinhos você levaria pra casa hoje? Comenta aqui embaixo no Achadinhos do Dia! Não esquece de deixar o like e se inscrever no canal para não perder os próximos achadinhos. Todos os links oficiais estão organizados na descrição em ordem. Até a próxima!`;
 
   const items = products.map((p, i) => {
     const pos = i + 1;
