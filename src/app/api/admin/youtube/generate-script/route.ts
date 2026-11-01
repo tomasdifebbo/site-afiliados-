@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
       theme = "Ofertas Relâmpago Shopee";
       products = await prisma.product.findMany({
         where: { price: { gt: 0 }, discountRate: { gte: 15 } },
+        include: { category: true },
         orderBy: [
           { discountRate: "desc" },
           { sales: "desc" },
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       if (products.length < 5) {
         products = await prisma.product.findMany({
           where: { price: { gt: 0 } },
+          include: { category: true },
           orderBy: [{ sales: "desc" }],
           take: 10,
         });
@@ -43,7 +45,11 @@ export async function POST(req: NextRequest) {
       const slugMatches = [...post.content.matchAll(/href="\/go\/([^"?]+)/g)];
       const slugs = [...new Set(slugMatches.map((m) => m[1]))];
       if (slugs.length > 0) {
-        products = await prisma.product.findMany({ where: { slug: { in: slugs } }, take: 12 });
+        products = await prisma.product.findMany({
+          where: { slug: { in: slugs } },
+          include: { category: true },
+          take: 12,
+        });
       }
     } else if (categoryId) {
       const category = await prisma.category.findUnique({ where: { id: categoryId } });
@@ -52,6 +58,7 @@ export async function POST(req: NextRequest) {
       title = `10 Achadinhos da Shopee — ${category.name}`;
       products = await prisma.product.findMany({
         where: { categoryId, ratingStar: { gte: 4 }, price: { gt: 0 } },
+        include: { category: true },
         orderBy: { sales: "desc" },
         take: 10,
       });
@@ -59,6 +66,7 @@ export async function POST(req: NextRequest) {
       title = "10 Achadinhos Incríveis da Shopee que Merecem Entrar no seu Radar";
       products = await prisma.product.findMany({
         where: { ratingStar: { gte: 4 }, price: { gt: 0 } },
+        include: { category: true },
         orderBy: { sales: "desc" },
         take: 10,
       });
@@ -95,6 +103,10 @@ export async function POST(req: NextRequest) {
       thumbnailSuggestion,
       tags,
       products: products.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        categoryId: p.categoryId || (p as any).category?.id || null,
+        categoryName: (p as any).category?.name || "",
         name: p.name,
         price: p.price,
         ratingStar: p.ratingStar,
@@ -339,7 +351,7 @@ function getEmoji(name: string): string {
 
 // ─── YouTube Description ─────────────────────────────────────────────────────
 
-function generateDescription({ title, products, siteUrl }: {
+export function generateDescription({ title, products, siteUrl }: {
   title: string;
   products: any[];
   siteUrl: string;
@@ -368,7 +380,7 @@ function generateDescription({ title, products, siteUrl }: {
 
 // ─── Thumbnail Guide ─────────────────────────────────────────────────────────
 
-function generateThumbnailGuide(products: any[]) {
+export function generateThumbnailGuide(products: any[]) {
   const top3 = products.slice(0, 3).map((p) => p.name.split(" ").slice(0, 4).join(" "));
   const cheapest = [...products].sort((a, b) => (a.price ?? 99) - (b.price ?? 99))[0];
 
@@ -401,7 +413,7 @@ function generateThumbnailGuide(products: any[]) {
 
 // ─── Tags ────────────────────────────────────────────────────────────────────
 
-function generateTags(products: any[], theme: string): string[] {
+export function generateTags(products: any[], theme: string): string[] {
   const base = [
     "achadinhos", "shopee", "achadinhos da shopee", "produtos shopee",
     "compras online", "ofertas shopee", "melhores compras", "produtos baratos",

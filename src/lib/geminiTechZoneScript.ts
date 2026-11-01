@@ -152,7 +152,101 @@ Retorne EXCLUSIVAMENTE um JSON válido com a seguinte estrutura:
   return buildSmartFallbackScript({ theme, siteUrl, products, topSalesItem, minPriceFormatted });
 }
 
-function buildFormattedScript({
+export async function generateSingleItemNarration(params: {
+  product: {
+    name: string;
+    price: number | null;
+    sales?: number | null;
+    ratingStar?: number | null;
+    discountRate?: number | null;
+  };
+  pos: number;
+  categoryName?: string;
+  apiKey?: string;
+}): Promise<TechZoneScriptItem> {
+  const { product, pos, categoryName = "Achadinhos", apiKey } = params;
+  const key = apiKey || process.env.GEMINI_API_KEY || "";
+  const shortName = product.name.split(" ").slice(0, 4).join(" ");
+  const priceSpoken = product.price ? `R$ ${product.price.toFixed(2).replace(".", ",")}` : "preço promocional";
+  const salesHighlight = product.sales ? `Mais de ${product.sales} vendas na Shopee` : "Sucesso de vendas";
+  const ratingStr = product.ratingStar ? product.ratingStar.toFixed(1) : "4.9";
+
+  if (key) {
+    const models = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const prompt = `Você é o narrador do canal TechZone Brasil no YouTube.
+Crie a fala para o produto da posição ${pos} de um vídeo de achadinhos da Shopee:
+- Categoria: ${categoryName}
+- Produto: ${product.name}
+- Preço: ${priceSpoken}
+- Vendas: ${salesHighlight}
+- Avaliação: ${ratingStr} estrelas
+
+Regras:
+1. Tom dinâmico, curioso, natural, sem formalidade excessiva.
+2. Explique brevemente para que serve ou o problema que resolve na vida real.
+3. Mencione as vendas e o preço com naturalidade.
+4. Finalize dizendo que o link oficial com desconto está no número ${pos} na descrição.
+5. Retorne EXCLUSIVAMENTE um JSON:
+{
+  "shortName": "${shortName}",
+  "hook": "frase rápida chamando a atenção para o item",
+  "narration": "texto falado de 35 a 55 palavras"
+}`;
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.8 },
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed.narration) {
+              return {
+                number: pos,
+                productName: product.name,
+                shortName: parsed.shortName || shortName,
+                hook: parsed.hook || `Dá uma olhada nessa novidade: o ${shortName}!`,
+                narration: parsed.narration,
+                priceSpoken,
+                salesHighlight,
+                isChampion: false,
+                isBestValue: false,
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // Fallback imediato de alta qualidade
+  const hook = `Agora, na linha de ${categoryName}, dá uma olhada no ${shortName}!`;
+  const narration = `Esse é o ${shortName}, perfeito para quem procura praticidade e ótimo acabamento no dia a dia. Na Shopee ele já conta com ${salesHighlight} e nota ${ratingStr}. O preço promocional tá saindo por apenas ${priceSpoken}. O link oficial com garantia tá no número ${pos} da descrição!`;
+
+  return {
+    number: pos,
+    productName: product.name,
+    shortName,
+    hook,
+    narration,
+    priceSpoken,
+    salesHighlight,
+    isChampion: false,
+    isBestValue: false,
+  };
+}
+
+export function buildFormattedScript({
   theme,
   siteUrl,
   products,

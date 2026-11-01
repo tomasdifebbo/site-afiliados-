@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Video, RefreshCw, Copy, CheckCheck, FileText, Tag, Image, Play, Download, Film, Sparkles, Smartphone, X } from "lucide-react";
+import { Video, RefreshCw, Copy, CheckCheck, FileText, Tag, Image, Play, Download, Film, Sparkles, Smartphone, X, Trash2 } from "lucide-react";
 import { DarkVideoPipeline } from "./DarkVideoPipeline";
 
 interface Post { id: string; title: string; slug: string; }
@@ -29,7 +29,19 @@ interface ScriptResult {
   youtubeDescription: string;
   thumbnailSuggestion: string;
   tags: string[];
-  products: { name: string; price: number; imageUrl: string; link: string; ratingStar: number; sales?: number; discount?: number; }[];
+  products: {
+    id?: string;
+    slug?: string;
+    categoryId?: string;
+    categoryName?: string;
+    name: string;
+    price: number;
+    imageUrl: string;
+    link: string;
+    ratingStar: number;
+    sales?: number;
+    discount?: number;
+  }[];
 }
 
 interface Props {
@@ -84,6 +96,10 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
   const [generatingShortsIndex, setGeneratingShortsIndex] = useState<number | null>(null);
   const [shortsResults, setShortsResults] = useState<{ [index: number]: { videoUrl: string; filename: string } }>({});
   const [shortsModal, setShortsModal] = useState<{ videoUrl: string; filename: string; productName: string } | null>(null);
+
+  // Estado de exclusão e substituição automática na mesma categoria
+  const [replacingProductIndex, setReplacingProductIndex] = useState<number | null>(null);
+  const [replaceNotice, setReplaceNotice] = useState<string | null>(null);
 
   const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
 
@@ -195,6 +211,65 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
       setVideoError(e.message);
     } finally {
       setGeneratingShortsIndex(null);
+    }
+  }
+
+  async function handleReplaceProduct(index: number) {
+    if (!result || !result.products[index]) return;
+    const prodToRemove = result.products[index];
+    setReplacingProductIndex(index);
+    setReplaceNotice(null);
+
+    try {
+      const res = await fetch("/api/admin/youtube/replace-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productToRemove: prodToRemove,
+          currentProductIds: result.products.map((p: any) => p.id).filter(Boolean),
+          currentProductSlugs: result.products.map((p: any) => p.slug).filter(Boolean),
+          positionIndex: index,
+          siteUrl,
+          theme: result.title,
+          allProducts: result.products,
+          techZoneData: result.techZoneData,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao substituir produto");
+
+      setResult((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          products: data.updatedProducts,
+          techZoneData: data.techZoneData,
+          youtubeDescription: data.updatedDescription,
+          fullScript: data.fullScript,
+          tags: data.tags,
+        };
+      });
+
+      // Limpa Shorts previamente gerado para essa posição substituída
+      setShortsResults((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+
+      // Se já havia um vídeo compilado, avisa que o roteiro foi atualizado
+      if (videoResult) {
+        setVideoResult(null);
+      }
+
+      setReplaceNotice(
+        `Produto #${index + 1} excluído e substituído com sucesso por "${data.replacement.name.slice(0, 45)}..." da categoria ${data.categoryName}!`
+      );
+    } catch (err: any) {
+      alert("Erro ao excluir e substituir produto: " + (err.message || "Tente novamente."));
+    } finally {
+      setReplacingProductIndex(null);
     }
   }
 
@@ -713,26 +788,114 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                   🛍️ Produtos Identificados ({result.products.length})
                 </h3>
                 <p style={{ margin: "2px 0 0 0", color: "#64748b", fontSize: "0.85rem" }}>
-                  Gere o vídeo longo completo acima ou crie vídeos <strong>Shorts verticais (9:16)</strong> individuais com a voz do TechZone para cada produto!
+                  Você pode <strong>excluir e substituir qualquer produto</strong> por outro da mesma categoria automaticamente, renderizar o vídeo longo completo acima ou criar <strong>Shorts (9:16)</strong> individuais!
                 </p>
               </div>
             </div>
 
+            {replaceNotice && (
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #86efac",
+                  color: "#166534",
+                  padding: "0.85rem 1.15rem",
+                  borderRadius: "12px",
+                  marginBottom: "1.25rem",
+                  fontSize: "0.88rem",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "10px",
+                  boxShadow: "0 2px 6px rgba(22, 101, 52, 0.08)",
+                }}
+              >
+                <span>✨ {replaceNotice}</span>
+                <button
+                  onClick={() => setReplaceNotice(null)}
+                  style={{ background: "none", border: "none", color: "#166534", cursor: "pointer", padding: "2px" }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: "1.25rem" }}>
               {result.products.map((p, i) => {
                 const isGenerating = generatingShortsIndex === i;
+                const isReplacing = replacingProductIndex === i;
                 const shorts = shortsResults[i];
 
                 return (
-                  <div key={i} style={{ border: "1px solid #e2e8f0", borderRadius: "16px", overflow: "hidden", fontSize: "0.82rem", background: "#fff", display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+                  <div key={i} style={{ border: "1px solid #e2e8f0", borderRadius: "16px", overflow: "hidden", fontSize: "0.82rem", background: "#fff", display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(0,0,0,0.02)", position: "relative" }}>
                     <div>
                       <div style={{ position: "relative" }}>
                         <img src={p.imageUrl} alt={p.name} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
                         <span style={{ position: "absolute", top: "8px", left: "8px", background: "#FF5722", color: "#fff", padding: "3px 9px", borderRadius: "8px", fontWeight: 900, fontSize: "0.75rem", boxShadow: "0 2px 6px rgba(0,0,0,0.2)" }}>
                           #{i + 1}
                         </span>
+
+                        {/* Botão para Excluir e Substituir por outro da mesma categoria */}
+                        <button
+                          onClick={() => handleReplaceProduct(i)}
+                          disabled={isReplacing || replacingProductIndex !== null}
+                          title="Excluir este produto e localizar automaticamente outro da mesma categoria"
+                          style={{
+                            position: "absolute",
+                            top: "8px",
+                            right: "8px",
+                            background: "rgba(225, 29, 72, 0.92)",
+                            color: "#fff",
+                            border: "1px solid rgba(255,255,255,0.4)",
+                            borderRadius: "8px",
+                            padding: "4px 8px",
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            cursor: isReplacing || replacingProductIndex !== null ? "not-allowed" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            backdropFilter: "blur(4px)",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <Trash2 size={12} />
+                          <span>Excluir</span>
+                        </button>
+
+                        {/* Loading Overlay durante a substituição */}
+                        {isReplacing && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              background: "rgba(15, 23, 42, 0.9)",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "8px",
+                              color: "#fff",
+                              padding: "1rem",
+                              textAlign: "center",
+                              zIndex: 10,
+                            }}
+                          >
+                            <RefreshCw size={24} className="animate-spin" style={{ color: "#FF5722" }} />
+                            <span style={{ fontSize: "0.78rem", fontWeight: 700, lineHeight: 1.3 }}>
+                              Buscando produto da mesma categoria...
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div style={{ padding: "0.85rem" }}>
+                        {p.categoryName && (
+                          <div style={{ fontSize: "0.68rem", color: "#6366f1", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>
+                            📁 {p.categoryName}
+                          </div>
+                        )}
                         <div style={{ fontWeight: 700, marginBottom: "6px", lineHeight: 1.35, color: "#0f172a" }}>{p.name.slice(0, 50)}</div>
                         <div style={{ color: "#FF5722", fontWeight: 900, fontSize: "1.05rem" }}>
                           R$ {p.price ? p.price.toFixed(2).replace(".", ",") : "—"}
@@ -741,7 +904,34 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                       </div>
                     </div>
 
-                    <div style={{ padding: "0.6rem 0.85rem 0.85rem 0.85rem", borderTop: "1px solid #f1f5f9" }}>
+                    <div>
+                      {/* Botão Secundário de Troca Rápida */}
+                      <div style={{ padding: "0 0.85rem 0.6rem 0.85rem" }}>
+                        <button
+                          onClick={() => handleReplaceProduct(i)}
+                          disabled={isReplacing || replacingProductIndex !== null}
+                          style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            borderRadius: "8px",
+                            border: "1px dashed #cbd5e1",
+                            background: "#f8fafc",
+                            color: "#475569",
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            cursor: isReplacing || replacingProductIndex !== null ? "not-allowed" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "5px",
+                          }}
+                        >
+                          <RefreshCw size={11} className={isReplacing ? "animate-spin" : ""} />
+                          Trocar por outro da categoria
+                        </button>
+                      </div>
+
+                      <div style={{ padding: "0.6rem 0.85rem 0.85rem 0.85rem", borderTop: "1px solid #f1f5f9" }}>
                       {shorts ? (
                         <div style={{ display: "flex", gap: "6px" }}>
                           <button
@@ -785,8 +975,9 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                       )}
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
             </div>
           </div>
 
