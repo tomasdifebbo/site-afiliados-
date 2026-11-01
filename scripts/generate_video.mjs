@@ -531,54 +531,60 @@ export async function renderProductCanvas(product, numero, progress = 0) {
     ctx.textAlign = 'left';
   }
 
-  // Badge de desconto ou tag especial
+  // Badge de desconto ou tag especial (com destaque para Campeão de Vendas)
+  const isChampion = Boolean(product.isChampion);
   const discount = product.discount || (product.originalPrice && product.price
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : null);
 
-  const badgeText = discount && discount > 0 ? `${discount}% OFF` : 'Oferta Shopee';
+  const badgeText = isChampion
+    ? '🔥 CAMPEÃO DE VENDAS'
+    : discount && discount > 0
+    ? `${discount}% OFF`
+    : 'Oferta Shopee';
+
   ctx.font = 'bold 26px sans-serif';
-  const badgeW = ctx.measureText(badgeText).width + 32;
-  const badgeH = 46;
+  const badgeW = ctx.measureText(badgeText).width + 36;
+  const badgeH = 50;
   const badgeX = cardX + 24;
   const badgeY = cardY + 24;
 
-  ctx.fillStyle = ORANGE_BADGE;
-  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 10);
+  ctx.fillStyle = isChampion ? '#DC2626' : ORANGE_BADGE;
+  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 12);
   ctx.fill();
   ctx.fillStyle = WHITE;
-  ctx.fillText(badgeText, badgeX + 16, badgeY + 32);
+  ctx.fillText(badgeText, badgeX + 18, badgeY + 34);
 
   const rightX = cardX + cardW + 80;
   const rightW = W - rightX - 100;
   let curY = 175;
 
-  // Número do produto em laranja de alto contraste
+  // Número do produto em laranja de alto contraste (ou dourado se for campeão)
   ctx.font = '900 140px sans-serif';
-  ctx.fillStyle = ORANGE;
+  ctx.fillStyle = isChampion ? '#FBBF24' : ORANGE;
   ctx.fillText(`#${numero}`, rightX, curY + 105);
   curY += 150;
 
   // Título do produto
   ctx.font = 'bold 46px sans-serif';
   ctx.fillStyle = WHITE;
-  curY = wrapText(ctx, product.name, rightX, curY, rightW, 58, 3) + 40;
+  curY = wrapText(ctx, product.name, rightX, curY, rightW, 58, 3) + 30;
 
-  // Pílula com o benefício prático (Prompt Mestre)
-  const practicalBenefit = getBenefit(product.name);
+  // Pílula com o gancho prático inteligente ou benefício do Gemini
+  const practicalBenefit = product.hook || getBenefit(product.name);
   if (practicalBenefit) {
     ctx.font = 'bold 22px sans-serif';
-    const tagText = `✓ ${practicalBenefit.slice(0, 48)}`;
+    const tagText = `💡 ${practicalBenefit.slice(0, 52)}`;
     const tagW = ctx.measureText(tagText).width + 32;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    roundRect(ctx, rightX, curY, Math.min(tagW, rightW), 42, 10);
+    roundRect(ctx, rightX, curY, Math.min(tagW, rightW), 44, 10);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = isChampion ? 'rgba(251, 191, 36, 0.4)' : 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    ctx.fillStyle = '#38BDF8';
-    ctx.fillText(tagText, rightX + 16, curY + 29);
+    ctx.fillStyle = isChampion ? '#FBBF24' : '#38BDF8';
+    ctx.fillText(tagText, rightX + 16, curY + 30);
     curY += 65;
   }
 

@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     writeFileSync(
       tmpInputPath,
       JSON.stringify({
-        products: products.slice(0, 10).map((p: any) => ({
+        products: products.slice(0, 10).map((p: any, idx: number) => ({
           name: p.name,
           price: p.price,
           originalPrice: p.originalPrice,
@@ -97,6 +97,8 @@ export async function POST(req: NextRequest) {
           ratingStar: p.ratingStar || 4.9,
           sales: p.sales || p.sold || 1000,
           discount: p.discount ?? p.discountRate ?? null,
+          isChampion: Boolean(p.isChampion || idx === 0),
+          hook: p.hook || null,
         })),
         categoria,
         slug: safeSlug,
