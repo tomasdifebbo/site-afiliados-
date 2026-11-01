@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
+import { ShopeeSearchBar } from "@/components/ShopeeSearchBar";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -26,7 +27,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${outfit.variable}`}>
         <header className="glass shadow-premium" style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid hsl(var(--border))' }}>
           <div className="container" style={{ height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <div style={{ width: '38px', height: '38px', backgroundColor: 'hsl(var(--primary))', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ color: 'white', fontWeight: 800, fontSize: '1.4rem' }}>A</span>
               </div>
@@ -34,8 +35,13 @@ export default function RootLayout({
                 Achadinhos<span style={{ color: 'hsl(var(--primary))' }}>doDia</span>
               </h1>
             </a>
+
+            {/* Campo de Busca Rápida na Shopee */}
+            <div style={{ flex: 1, maxWidth: "520px", margin: "0 1.5rem" }} className="header-search-desktop">
+              <ShopeeSearchBar />
+            </div>
             
-            <nav className="header-nav" style={{ display: 'flex', gap: '2rem' }}>
+            <nav className="header-nav" style={{ display: 'flex', gap: '2rem', flexShrink: 0 }}>
               <a href="/" style={{ fontWeight: 600 }}>Home</a>
               <a href="/categorias" style={{ fontWeight: 600 }}>Categorias</a>
               <a href="/blog" style={{ fontWeight: 600 }}>Blog</a>

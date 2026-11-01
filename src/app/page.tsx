@@ -3,6 +3,7 @@ import { Search, TrendingUp, Sparkles } from "lucide-react";
 import InfiniteProductGrid from "@/components/InfiniteProductGrid";
 import { ShopeeHeroBanner, CategoryTopProduct } from "@/components/ShopeeHeroBanner";
 import { ShopeeFlashDeals, FlashDealProduct } from "@/components/ShopeeFlashDeals";
+import { ShopeeSearchBar } from "@/components/ShopeeSearchBar";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,11 @@ export default async function Home() {
     <div style={{ backgroundColor: "#f5f5f5", minHeight: "100vh", paddingBottom: "4rem" }}>
       {/* Container Principal com Estilo Shopee */}
       <div className="container" style={{ paddingTop: "1.25rem" }}>
+        {/* Barra de Busca Shopee em Destaque no Topo */}
+        <div style={{ marginBottom: "1.25rem" }}>
+          <ShopeeSearchBar />
+        </div>
+
         {/* Banner Hero com Produtos Mais Procurados por Categoria (Largura Total) */}
         <ShopeeHeroBanner topProductsByCategory={topProductsByCategory} />
 
