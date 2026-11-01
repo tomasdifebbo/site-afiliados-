@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
           price: product.price,
           originalPrice: product.originalPrice,
           imageUrl: product.imageUrl,
+          sellerVideoUrl: product.sellerVideoUrl || product.videoUrl || null,
           ratingStar: product.ratingStar || 4.9,
           sales: product.sales || 1500,
           discount: product.discount ?? product.discountRate ?? null,

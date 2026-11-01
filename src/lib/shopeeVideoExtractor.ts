@@ -4,11 +4,12 @@ import { join } from "path";
 export interface ShopeeVideoExtractResult {
   success: boolean;
   videoUrl?: string;
+  allVideos?: Array<{ url: string; title: string; type: string; rating?: number }>;
   duration?: number;
   title?: string;
   shopId?: string;
   itemId?: string;
-  source?: "shopee_vod" | "pdp_json" | "dom";
+  source?: "shopee_vod" | "pdp_json" | "dom" | "direct_vod" | "review";
   error?: string;
 }
 

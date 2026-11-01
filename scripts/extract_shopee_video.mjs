@@ -11,6 +11,23 @@ puppeteer.use(StealthPlugin());
 const CHROME_PATH = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
 export async function extractShopeeVideo(targetUrl) {
+  let url = (targetUrl || '').trim().replace(/^["']|["']$/g, '');
+
+  // 1. Se já for link direto de vídeo da Shopee (VOD, CDN ou MP4)
+  if (
+    url.includes('vod.susercontent.com') ||
+    url.includes('cv.shopee') ||
+    url.includes('mms.vod') ||
+    /\.(mp4|webm|mov)(\?.*)?$/i.test(url)
+  ) {
+    return {
+      success: true,
+      videoUrl: url,
+      allVideos: [{ url, title: 'Vídeo Direto Shopee', type: 'direct' }],
+      source: 'direct_vod',
+    };
+  }
+
   const browser = await puppeteer.launch({
     executablePath: CHROME_PATH,
     headless: 'new',
@@ -18,7 +35,6 @@ export async function extractShopeeVideo(targetUrl) {
   });
 
   try {
-    let url = (targetUrl || '').trim().replace(/^["']|["']$/g, '');
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       url = `https://shopee.com.br/product/${url}`;
     }
@@ -42,21 +58,62 @@ export async function extractShopeeVideo(targetUrl) {
     await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
 
     let videoFound = null;
+    const allVideos = [];
 
-    page.on('response', (res) => {
+    page.on('response', async (res) => {
       const u = res.url();
-      if (u.includes('vod.susercontent.com') || u.includes('cv.shopee') || u.includes('mms.vod')) {
-        videoFound = u;
+      if (u.includes('vod.susercontent.com') || u.includes('cv.shopee') || u.includes('mms.vod') || u.endsWith('.mp4')) {
+        if (!videoFound) videoFound = u;
+        if (!allVideos.some((v) => v.url === u)) {
+          allVideos.push({
+            url: u,
+            title: u.includes('review') ? 'Vídeo de Comentário / Avaliação' : 'Vídeo da Galeria',
+            type: u.includes('review') ? 'review' : 'gallery',
+          });
+        }
+      }
+
+      // Intercepta respostas de avaliações / comentários com vídeos
+      if (u.includes('get_ratings') || u.includes('rating')) {
+        try {
+          const json = await res.json();
+          const ratings = json.data?.ratings || [];
+          for (const r of ratings) {
+            const vids = r.videos || r.item_rating?.videos || [];
+            for (const v of vids) {
+              const vidUrl = v.url || (v.video_id ? `https://cv.shopee.com.br/video/${v.video_id}.mp4` : null);
+              if (vidUrl && !allVideos.some((existing) => existing.url === vidUrl)) {
+                if (!videoFound) videoFound = vidUrl;
+                allVideos.push({
+                  url: vidUrl,
+                  title: `Vídeo de Avaliação (${r.rating_star || 5}★: ${r.comment ? r.comment.slice(0, 35) + '...' : 'Comprador'})`,
+                  type: 'review',
+                  rating: r.rating_star || 5,
+                });
+              }
+            }
+          }
+        } catch {}
       }
     });
 
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 35000 }).catch(() => null);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => null);
+
+    // Rola a página para acionar carregamento de comentários e avaliações com vídeos
+    await page.evaluate(async () => {
+      window.scrollBy(0, 800);
+      await new Promise((r) => setTimeout(r, 1200));
+      window.scrollBy(0, 1200);
+    }).catch(() => null);
+
+    await new Promise((r) => setTimeout(r, 4000));
     const title = await page.title().catch(() => null);
 
-    if (videoFound) {
+    if (videoFound || allVideos.length > 0) {
       return {
         success: true,
-        videoUrl: videoFound,
+        videoUrl: videoFound || allVideos[0].url,
+        allVideos,
         title,
         shopId,
         itemId,
@@ -67,7 +124,7 @@ export async function extractShopeeVideo(targetUrl) {
       success: false,
       shopId,
       itemId,
-      error: 'O anúncio foi acessado, mas este vendedor não incluiu vídeo no produto.',
+      error: 'Nenhum vídeo foi encontrado na galeria ou nos comentários para este anúncio.',
     };
   } finally {
     await browser.close().catch(() => {});

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Video, RefreshCw, Copy, CheckCheck, FileText, Tag, Image, Play, Download, Film, Sparkles, Smartphone, X, Trash2 } from "lucide-react";
+import { Video, RefreshCw, Copy, CheckCheck, FileText, Tag, Image, Play, Download, Film, Sparkles, Smartphone, X, Trash2, Check } from "lucide-react";
 import { DarkVideoPipeline } from "./DarkVideoPipeline";
+import { getShopeeBookmarkletCode } from "@/lib/shopeeBookmarklet";
 
 interface Post { id: string; title: string; slug: string; }
 interface Category { id: string; name: string; slug: string; }
@@ -42,6 +43,8 @@ interface ScriptResult {
     ratingStar: number;
     sales?: number;
     discount?: number;
+    sellerVideoUrl?: string;
+    videoUrl?: string;
   }[];
 }
 
@@ -104,6 +107,12 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
   const [replacingProductIndex, setReplacingProductIndex] = useState<number | null>(null);
   const [replaceNotice, setReplaceNotice] = useState<string | null>(null);
   const [discardedIds, setDiscardedIds] = useState<string[]>([]);
+
+  // Estado de anexo de vídeo da Shopee (galeria ou comentários) para cada card
+  const [attachingVideoIndex, setAttachingVideoIndex] = useState<number | null>(null);
+  const [manualVideoInput, setManualVideoInput] = useState("");
+  const [isExtractingCardVideo, setIsExtractingCardVideo] = useState(false);
+  const [copiedBookmarklet, setCopiedBookmarklet] = useState(false);
 
   const isCloud = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
 
@@ -309,6 +318,67 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
       alert("Erro ao excluir e substituir produto: " + (err.message || "Tente novamente."));
     } finally {
       setReplacingProductIndex(null);
+    }
+  }
+
+  function handleAttachVideoToProduct(index: number, videoUrlToAttach: string) {
+    if (!result || !result.products[index]) return;
+    setResult((prev) => {
+      if (!prev) return prev;
+      const updated = [...prev.products];
+      updated[index] = {
+        ...updated[index],
+        sellerVideoUrl: videoUrlToAttach,
+        videoUrl: videoUrlToAttach,
+      };
+      return { ...prev, products: updated };
+    });
+    setAttachingVideoIndex(null);
+    setManualVideoInput("");
+  }
+
+  async function handleExtractCardVideo(e: React.FormEvent, index: number) {
+    e.preventDefault();
+    if (!manualVideoInput.trim()) return;
+    setIsExtractingCardVideo(true);
+    try {
+      const res = await fetch("/api/admin/shopee/extract-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: manualVideoInput.trim() }),
+      });
+      const data = await res.json();
+      if (data.success && data.videoUrl) {
+        handleAttachVideoToProduct(index, data.videoUrl);
+      } else {
+        alert("Nenhum vídeo encontrado para este link. Cole o link direto do vídeo (.mp4 / vod.susercontent.com) ou suba um arquivo!");
+      }
+    } catch (err: any) {
+      alert("Erro ao extrair vídeo: " + err.message);
+    } finally {
+      setIsExtractingCardVideo(false);
+    }
+  }
+
+  async function handleCardVideoUpload(e: React.ChangeEvent<HTMLInputElement>, index: number) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsExtractingCardVideo(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/admin/video/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success && data.videoUrl) {
+        handleAttachVideoToProduct(index, data.videoUrl);
+      } else {
+        throw new Error(data.error || "Falha no envio do vídeo");
+      }
+    } catch (err: any) {
+      alert("Erro ao enviar vídeo: " + err.message);
+    } finally {
+      setIsExtractingCardVideo(false);
+      e.target.value = "";
     }
   }
 
@@ -1055,6 +1125,52 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                         </select>
                       </div>
 
+                      {/* Botão de Anexar / Ver Vídeo Real Shopee (Galeria ou Comentários) */}
+                      <div style={{ padding: "0 0.85rem 0.6rem 0.85rem" }}>
+                        {p.sellerVideoUrl ? (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "5px 8px", borderRadius: "8px" }}>
+                            <span style={{ fontSize: "0.72rem", color: "#166534", fontWeight: 800, display: "flex", alignItems: "center", gap: "4px" }}>
+                              🎬 Vídeo Real Ativo
+                            </span>
+                            <button
+                              onClick={() => {
+                                setManualVideoInput(p.sellerVideoUrl || "");
+                                setAttachingVideoIndex(i);
+                              }}
+                              style={{ background: "none", border: "none", color: "#15803d", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
+                            >
+                              Ver / Trocar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setManualVideoInput("");
+                              setAttachingVideoIndex(i);
+                            }}
+                            title="Anexar vídeo da galeria oficial ou dos comentários de clientes da Shopee"
+                            style={{
+                              width: "100%",
+                              padding: "6px 8px",
+                              borderRadius: "8px",
+                              border: "1px solid #fed7aa",
+                              background: "#fff7ed",
+                              color: "#c2410c",
+                              fontSize: "0.72rem",
+                              fontWeight: 800,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "5px",
+                            }}
+                          >
+                            <Video size={12} />
+                            Anexar Vídeo Shopee
+                          </button>
+                        )}
+                      </div>
+
                       <div style={{ padding: "0.6rem 0.85rem 0.85rem 0.85rem", borderTop: "1px solid #f1f5f9" }}>
                       {shorts ? (
                         <div style={{ display: "flex", gap: "6px" }}>
@@ -1177,6 +1293,171 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
               >
                 Fechar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Anexar Vídeo Shopee ao Produto (Galeria / Comentários) */}
+      {attachingVideoIndex !== null && result && result.products[attachingVideoIndex] && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(15, 23, 42, 0.8)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 9999, padding: "1.5rem"
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: "24px", padding: "2rem",
+            maxWidth: "540px", width: "100%", maxHeight: "90vh", overflowY: "auto",
+            position: "relative", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)"
+          }}>
+            <button
+              onClick={() => setAttachingVideoIndex(null)}
+              style={{
+                position: "absolute", top: "18px", right: "18px",
+                background: "#f1f5f9", border: "none", color: "#64748b",
+                borderRadius: "50%", width: "32px", height: "32px", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "1rem" }}>
+              <div style={{ background: "linear-gradient(135deg, #FF5722, #FF7A00)", borderRadius: "12px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                <Video size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "#0f172a" }}>
+                  Anexar Vídeo Real da Shopee
+                </h3>
+                <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                  Produto #{attachingVideoIndex + 1}: {result.products[attachingVideoIndex].name.slice(0, 45)}...
+                </span>
+              </div>
+            </div>
+
+            {/* Prévia do Vídeo Atual se houver */}
+            {result.products[attachingVideoIndex].sellerVideoUrl ? (
+              <div style={{ background: "#090a0f", borderRadius: "16px", padding: "12px", marginBottom: "1.25rem", textAlign: "center" }}>
+                <div style={{ color: "#22c55e", fontSize: "0.78rem", fontWeight: 800, marginBottom: "8px" }}>
+                  ✅ VÍDEO ATUALMENTE ANEXADO
+                </div>
+                <video
+                  src={result.products[attachingVideoIndex].sellerVideoUrl}
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  style={{ width: "100%", maxHeight: "200px", objectFit: "contain", borderRadius: "8px" }}
+                />
+                <button
+                  onClick={() => handleAttachVideoToProduct(attachingVideoIndex, "")}
+                  style={{ marginTop: "8px", background: "none", border: "none", color: "#f87171", fontSize: "0.75rem", cursor: "pointer", fontWeight: 700 }}
+                >
+                  Remover Vídeo
+                </button>
+              </div>
+            ) : null}
+
+            {/* Dica Rápida de como copiar da Shopee */}
+            <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: "14px", padding: "12px 14px", marginBottom: "1.2rem" }}>
+              <div style={{ fontWeight: 800, fontSize: "0.82rem", color: "#92400e", marginBottom: "4px" }}>
+                💡 Como pegar vídeos da Galeria ou dos Comentários em 2 segundos:
+              </div>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "#78350f", lineHeight: 1.4 }}>
+                No site da Shopee, quando estiver vendo a <strong>galeria do produto</strong> ou as <strong>avaliações com vídeo de clientes</strong>, clique com o botão direito em cima do vídeo e escolha <strong>&quot;Copiar endereço do vídeo&quot;</strong>, depois cole abaixo:
+              </p>
+            </div>
+
+            {/* Formulário: Colar URL direta */}
+            <form onSubmit={(e) => handleExtractCardVideo(e, attachingVideoIndex)} style={{ marginBottom: "1.2rem" }}>
+              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
+                Cole o link do vídeo (.mp4 / vod.susercontent.com) ou link do anúncio:
+              </label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text"
+                  placeholder="https://vod.susercontent.com/... ou https://shopee.com.br/..."
+                  value={manualVideoInput}
+                  onChange={(e) => setManualVideoInput(e.target.value)}
+                  style={{ flex: 1, padding: "10px 12px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "0.82rem" }}
+                />
+                <button
+                  type="submit"
+                  disabled={isExtractingCardVideo}
+                  style={{
+                    background: "#0f172a", color: "#fff", border: "none",
+                    padding: "10px 16px", borderRadius: "10px", fontWeight: 800,
+                    fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap"
+                  }}
+                >
+                  {isExtractingCardVideo ? "Puxando..." : "Anexar"}
+                </button>
+              </div>
+            </form>
+
+            {/* Extrator 1-Clique na Shopee */}
+            <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", borderRadius: "14px", padding: "12px 14px", marginBottom: "1.2rem", border: "1px solid #bfdbfe" }}>
+              <div style={{ fontWeight: 800, fontSize: "0.82rem", color: "#1e3a8a", marginBottom: "4px" }}>
+                ⚡ Extrator 1-Clique na Shopee (Favoritos)
+              </div>
+              <p style={{ margin: "0 0 8px 0", fontSize: "0.76rem", color: "#334155", lineHeight: 1.35 }}>
+                Arraste o botão para a barra de favoritos do navegador. Ao clicar nele na Shopee, ele lista todos os vídeos na hora!
+              </p>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <a
+                  href={getShopeeBookmarkletCode()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert("👉 Arraste este botão para a sua Barra de Favoritos do Chrome/Edge (Ctrl+Shift+B)!");
+                  }}
+                  draggable
+                  style={{
+                    padding: "6px 14px", background: "linear-gradient(135deg, #FF5722 0%, #FF7A00 100%)",
+                    color: "#fff", borderRadius: "8px", fontWeight: 800, fontSize: "0.75rem",
+                    textDecoration: "none", cursor: "grab"
+                  }}
+                >
+                  🎬 Puxar Vídeos Shopee
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(getShopeeBookmarkletCode());
+                    setCopiedBookmarklet(true);
+                    setTimeout(() => setCopiedBookmarklet(false), 2000);
+                  }}
+                  style={{
+                    padding: "6px 10px", borderRadius: "8px", background: "#fff",
+                    border: "1px solid #cbd5e1", fontSize: "0.74rem", fontWeight: 700,
+                    color: "#1e293b", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px"
+                  }}
+                >
+                  {copiedBookmarklet ? <Check size={12} color="#15803d" /> : <Copy size={12} />}
+                  {copiedBookmarklet ? "Copiado!" : "Copiar Código"}
+                </button>
+              </div>
+            </div>
+
+            {/* Upload de arquivo do PC */}
+            <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: "0.82rem", color: "#0f172a" }}>Ou envie arquivo de vídeo do PC:</div>
+                <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Formatos suportados: MP4, WebM, MOV</div>
+              </div>
+              <label style={{
+                padding: "8px 14px", borderRadius: "10px", background: "#334155",
+                color: "#fff", fontWeight: 700, fontSize: "0.78rem", cursor: isExtractingCardVideo ? "not-allowed" : "pointer"
+              }}>
+                {isExtractingCardVideo ? "Enviando..." : "Escolher Arquivo"}
+                <input
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/*"
+                  onChange={(e) => handleCardVideoUpload(e, attachingVideoIndex)}
+                  disabled={isExtractingCardVideo}
+                  style={{ display: "none" }}
+                />
+              </label>
             </div>
           </div>
         </div>

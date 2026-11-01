@@ -56,6 +56,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Se a URL já for um link direto de vídeo da Shopee (da galeria, VOD ou comentário)
+    const isDirectVideo =
+      targetUrl.includes("vod.susercontent.com") ||
+      targetUrl.includes("cv.shopee") ||
+      targetUrl.includes("mms.vod") ||
+      /\.(mp4|webm|mov)(\?.*)?$/i.test(targetUrl);
+
+    if (isDirectVideo) {
+      if (darkVideoId) {
+        darkVideoItem = await prisma.darkVideo.update({
+          where: { id: darkVideoId },
+          data: { sellerVideoUrl: targetUrl },
+        });
+      }
+      const targetProdId = productId || darkVideoItem?.productId;
+      if (targetProdId) {
+        await prisma.product.update({
+          where: { id: targetProdId },
+          data: { videoUrl: targetUrl },
+        }).catch(() => null);
+      }
+      return NextResponse.json({
+        success: true,
+        videoUrl: targetUrl,
+        allVideos: [
+          {
+            url: targetUrl,
+            title: "Vídeo Direto da Shopee (Galeria / Comentário)",
+            type: targetUrl.includes("review") ? "review" : "gallery",
+          },
+        ],
+        source: "direct_vod",
+      });
+    }
+
     // Executa a extração stealth de vídeo
     const extraction = await extractShopeeProductVideo(targetUrl);
 
@@ -93,6 +128,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       videoUrl: extraction.videoUrl,
+      allVideos: extraction.allVideos || [{ url: extraction.videoUrl, title: "Vídeo Shopee", type: "gallery" }],
       duration: extraction.duration,
       title: extraction.title,
       shopId: extraction.shopId,

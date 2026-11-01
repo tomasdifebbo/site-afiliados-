@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getShopeeBookmarkletCode } from "@/lib/shopeeBookmarklet";
 import {
   Sparkles,
   Film,
@@ -76,8 +77,10 @@ export function DarkVideoPipeline() {
   // ── PASSO 2: Vídeo do Vendedor Shopee ──
   const [extractingVideo, setExtractingVideo] = useState(false);
   const [sellerVideoUrl, setSellerVideoUrl] = useState<string | null>(null);
+  const [availableVideos, setAvailableVideos] = useState<Array<{ url: string; title: string; type: string; rating?: number }>>([]);
   const [customVideoUrlInput, setCustomVideoUrlInput] = useState("");
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [copiedBookmarklet, setCopiedBookmarklet] = useState(false);
 
   // ── PASSO 3: Narrativa Detalhada com Gemini AI ──
   const [generatingScript, setGeneratingScript] = useState(false);
@@ -119,6 +122,34 @@ export function DarkVideoPipeline() {
   useEffect(() => {
     fetchTrendingProducts();
     fetchSavedVideos();
+
+    // Se a página foi aberta com parâmetros de vídeo da Shopee (via Bookmarklet)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlVideo = params.get("videoUrl");
+      const pName = params.get("productName");
+      const pPrice = params.get("price");
+      const pImg = params.get("imageUrl");
+      const pLink = params.get("affiliateLink");
+
+      if (urlVideo) {
+        setSellerVideoUrl(urlVideo);
+        setAvailableVideos([
+          { url: urlVideo, title: "Vídeo Puxado da Shopee (Galeria/Comentário)", type: "shopee" }
+        ]);
+        if (pName) {
+          setSelectedProduct({
+            productName: pName,
+            price: pPrice || "0",
+            imageUrl: pImg || "",
+            productLink: pLink || "",
+            itemId: "puxado-" + Date.now(),
+            shopId: "shopee",
+          });
+          setCurrentStep(2);
+        }
+      }
+    }
   }, []);
 
   const handleTabChange = (tab: typeof TRENDING_TABS[0]) => {
@@ -151,6 +182,11 @@ export function DarkVideoPipeline() {
   const handleSelectProduct = async (prod: ProductItem) => {
     setSelectedProduct(prod);
     setSellerVideoUrl(prod.videoUrl || null);
+    if (prod.videoUrl) {
+      setAvailableVideos([{ url: prod.videoUrl, title: "Vídeo do Produto", type: "gallery" }]);
+    } else {
+      setAvailableVideos([]);
+    }
     setCurrentStep(2);
 
     // Se já não tiver vídeo, tenta extrair imediatamente
@@ -163,6 +199,7 @@ export function DarkVideoPipeline() {
   const extractSellerVideoForProduct = async (prod: ProductItem) => {
     setExtractingVideo(true);
     setSellerVideoUrl(null);
+    setAvailableVideos([]);
     try {
       const targetUrl = prod.offerLink || prod.productLink || `https://shopee.com.br/product/${prod.shopId}/${prod.itemId}`;
       const res = await fetch("/api/admin/shopee/extract-video", {
@@ -173,6 +210,11 @@ export function DarkVideoPipeline() {
       const data = await res.json();
       if (data.success && data.videoUrl) {
         setSellerVideoUrl(data.videoUrl);
+        if (data.allVideos && data.allVideos.length > 0) {
+          setAvailableVideos(data.allVideos);
+        } else {
+          setAvailableVideos([{ url: data.videoUrl, title: "Vídeo Principal da Shopee", type: "gallery" }]);
+        }
       }
     } catch (e: any) {
       console.warn("Vídeo não encontrado na Shopee:", e.message);
@@ -195,8 +237,13 @@ export function DarkVideoPipeline() {
       const data = await res.json();
       if (data.success && data.videoUrl) {
         setSellerVideoUrl(data.videoUrl);
+        if (data.allVideos && data.allVideos.length > 0) {
+          setAvailableVideos(data.allVideos);
+        } else {
+          setAvailableVideos([{ url: data.videoUrl, title: "Vídeo Principal da Shopee", type: "gallery" }]);
+        }
       } else {
-        alert("Nenhum vídeo do vendedor encontrado para este link.");
+        alert("Nenhum vídeo do vendedor ou de comentário encontrado para este link.");
       }
     } catch (e: any) {
       alert("Erro ao extrair vídeo: " + e.message);
@@ -605,58 +652,192 @@ export function DarkVideoPipeline() {
           </div>
 
           <h2 style={{ fontSize: "1.35rem", fontWeight: 900, margin: "0 0 6px 0", color: "#0f172a" }}>
-            Passo 2: Vídeo Demonstrativo do Vendedor
+            Passo 2: Vídeos da Galeria e Comentários do Produto (Shopee)
           </h2>
           <p style={{ margin: "0 0 1.5rem 0", color: "#64748b", fontSize: "0.88rem" }}>
-            Vídeos reais com demonstração prática aumentam em até 5x a retenção nos Shorts, TikTok e Kwai.
+            Vídeos reais da galeria do vendedor ou das avaliações dos clientes aumentam em até 5x a retenção nos Shorts, TikTok e Kwai.
           </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "2rem", alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "2rem", alignItems: "start" }}>
             {/* Visualizador de Vídeo */}
-            <div style={{ background: "#090a0f", borderRadius: "18px", padding: "1rem", textAlign: "center", color: "#fff" }}>
+            <div style={{ background: "#090a0f", borderRadius: "18px", padding: "1.2rem", textAlign: "center", color: "#fff" }}>
               {extractingVideo ? (
                 <div style={{ padding: "4rem 1rem" }}>
                   <RefreshCw size={36} className="animate-spin" style={{ margin: "0 auto 14px auto", color: "#FF5722" }} />
-                  <div style={{ fontWeight: 800, fontSize: "1rem", marginBottom: "4px" }}>Buscando Vídeo na Shopee...</div>
-                  <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Acessando a CDN oficial do anúncio</div>
+                  <div style={{ fontWeight: 800, fontSize: "1rem", marginBottom: "4px" }}>Buscando Vídeos na Shopee...</div>
+                  <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Varrendo galeria oficial e vídeos de avaliações dos clientes</div>
                 </div>
               ) : sellerVideoUrl ? (
                 <div>
                   <div style={{ width: "100%", maxHeight: "380px", borderRadius: "12px", overflow: "hidden", background: "#000", marginBottom: "12px" }}>
-                    <video src={sellerVideoUrl} controls autoPlay loop playsInline style={{ width: "100%", maxHeight: "380px", objectFit: "contain" }} />
+                    <video key={sellerVideoUrl} src={sellerVideoUrl} controls autoPlay loop playsInline style={{ width: "100%", maxHeight: "380px", objectFit: "contain" }} />
                   </div>
-                  <div style={{ display: "inline-block", background: "#dcfce7", color: "#15803d", padding: "4px 10px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 800, marginBottom: "8px" }}>
-                    ✅ VÍDEO DO VENDEDOR CAPTURADO EM ALTA QUALIDADE
+                  <div style={{ display: "inline-block", background: "#dcfce7", color: "#15803d", padding: "5px 12px", borderRadius: "8px", fontSize: "0.78rem", fontWeight: 800, marginBottom: "12px" }}>
+                    ✅ VÍDEO SELECIONADO PARA O VÍDEO DARK (9:16)
                   </div>
                 </div>
               ) : (
                 <div style={{ padding: "3rem 1rem" }}>
                   <img src={selectedProduct.imageUrl} alt="" style={{ width: "120px", height: "120px", borderRadius: "12px", margin: "0 auto 12px auto", objectFit: "cover" }} />
-                  <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "4px" }}>Sem vídeo anexado pelo vendedor</div>
+                  <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "4px" }}>Nenhum vídeo selecionado ainda</div>
                   <div style={{ fontSize: "0.78rem", color: "#94a3b8", maxWidth: "280px", margin: "0 auto" }}>
-                    O sistema utilizará a foto oficial com zoom Ken Burns HD no vídeo 9:16.
+                    Você pode colar o link do vídeo de um comentário, enviar um arquivo do seu computador ou usar o Extrator 1-Clique ao lado!
+                  </div>
+                </div>
+              )}
+
+              {/* Lista de vídeos encontrados (Galeria vs Comentários) */}
+              {availableVideos.length > 0 && (
+                <div style={{ marginTop: "1rem", textAlign: "left", borderTop: "1px solid #1e293b", paddingTop: "1rem" }}>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#f8fafc", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Vídeos Disponíveis ({availableVideos.length}):</span>
+                    <span style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 500 }}>Clique para alternar</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "180px", overflowY: "auto" }}>
+                    {availableVideos.map((vid, idx) => {
+                      const isSelected = sellerVideoUrl === vid.url;
+                      const isReview = vid.type === "review" || vid.type === "comentario";
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => setSellerVideoUrl(vid.url)}
+                          style={{
+                            padding: "8px 10px",
+                            borderRadius: "10px",
+                            background: isSelected ? "#FF5722" : "#1e293b",
+                            color: "#fff",
+                            cursor: "pointer",
+                            fontSize: "0.78rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "8px",
+                            border: isSelected ? "1px solid #FF7A00" : "1px solid #334155",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                            <span>{isReview ? "💬" : "🌟"}</span>
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: isSelected ? 800 : 500 }}>
+                              {vid.title}
+                            </span>
+                          </div>
+                          {isSelected && <span style={{ fontSize: "0.7rem", fontWeight: 800 }}>ATIVO</span>}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Opções e Troca de Vídeo */}
-            <div>
-              {/* Opção 1: Upload direto de arquivo de vídeo */}
-              <div style={{ background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)", borderRadius: "14px", padding: "1.25rem", border: "1px solid #cbd5e1", marginBottom: "1.25rem" }}>
-                <h4 style={{ margin: "0 0 6px 0", fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
-                  📁 Carregar Vídeo do seu Computador (MP4 / WebM / MOV)
+            {/* Opções e Ferramentas de Extração de Vídeo */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+              {/* Opção 1: Extrator 1-Clique na Shopee (Bookmarklet) */}
+              <div style={{ background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", borderRadius: "16px", padding: "1.25rem", border: "1px solid #bfdbfe" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "1.2rem" }}>⚡</span>
+                  <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 900, color: "#1e3a8a" }}>
+                    Extrator 1-Clique Shopee (Galeria + Comentários)
+                  </h4>
+                </div>
+                <p style={{ margin: "0 0 10px 0", fontSize: "0.82rem", color: "#334155", lineHeight: 1.4 }}>
+                  Arraste o botão abaixo para a <strong>barra de favoritos</strong> do seu navegador. Quando estiver na Shopee vendo a galeria ou os comentários do produto, clique nele para puxar todos os vídeos na hora!
+                </p>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                  <a
+                    href={getShopeeBookmarkletCode()}
+                    onClick={(e) => {
+                      // Se for apenas clicado na própria página
+                      e.preventDefault();
+                      alert("👉 Arraste este botão para a sua Barra de Favoritos do Chrome/Edge (Ctrl+Shift+B para exibir a barra)!");
+                    }}
+                    draggable
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 16px",
+                      background: "linear-gradient(135deg, #FF5722 0%, #FF7A00 100%)",
+                      color: "#fff",
+                      borderRadius: "10px",
+                      fontWeight: 800,
+                      fontSize: "0.82rem",
+                      textDecoration: "none",
+                      boxShadow: "0 3px 10px rgba(255,87,34,0.3)",
+                      cursor: "grab",
+                    }}
+                    title="Arraste para sua barra de favoritos"
+                  >
+                    🎬 Puxar Vídeos Shopee
+                  </a>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(getShopeeBookmarkletCode());
+                      setCopiedBookmarklet(true);
+                      setTimeout(() => setCopiedBookmarklet(false), 2500);
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "10px",
+                      background: "#fff",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      color: "#1e293b",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "5px",
+                    }}
+                  >
+                    {copiedBookmarklet ? <Check size={14} color="#15803d" /> : <Copy size={14} />}
+                    {copiedBookmarklet ? "Código Copiado!" : "Copiar Código Favorito"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Opção 2: Colar Link Direto do Vídeo ou do Produto */}
+              <div style={{ background: "#f8fafc", borderRadius: "16px", padding: "1.25rem", border: "1px solid #e2e8f0" }}>
+                <h4 style={{ margin: "0 0 6px 0", fontSize: "0.92rem", fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
+                  🔗 Colar Link Direto do Vídeo ou da Shopee
                 </h4>
-                <p style={{ margin: "0 0 12px 0", fontSize: "0.82rem", color: "#64748b" }}>
-                  Suba qualquer gravação ou vídeo do produto salvo no seu PC para ser o fundo do vídeo com narração neural:
+                <p style={{ margin: "0 0 10px 0", fontSize: "0.8rem", color: "#64748b", lineHeight: 1.4 }}>
+                  <strong>Dica de ouro:</strong> No site da Shopee, clique com o <em>botão direito</em> em cima de qualquer vídeo (da galeria ou de uma avaliação de comprador) e selecione <strong>&quot;Copiar endereço do vídeo&quot;</strong>, depois cole aqui:
+                </p>
+                <form onSubmit={handleExtractManualUrl} style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    type="text"
+                    value={customVideoUrlInput}
+                    onChange={(e) => setCustomVideoUrlInput(e.target.value)}
+                    placeholder="Cole o link do vídeo (.mp4 / vod.susercontent.com) ou link do produto..."
+                    style={{ flex: 1, padding: "10px 12px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "0.82rem" }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={extractingVideo}
+                    style={{ background: "#0f172a", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "10px", fontWeight: 800, fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    {extractingVideo ? "Extraindo..." : "Usar Vídeo"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Opção 3: Upload direto de arquivo de vídeo */}
+              <div style={{ background: "#f8fafc", borderRadius: "16px", padding: "1.25rem", border: "1px solid #e2e8f0" }}>
+                <h4 style={{ margin: "0 0 6px 0", fontSize: "0.92rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                  📁 Ou Enviar Vídeo Salvo no Computador (MP4 / WebM / MOV)
+                </h4>
+                <p style={{ margin: "0 0 10px 0", fontSize: "0.8rem", color: "#64748b" }}>
+                  Se você baixou um vídeo de review ou gravou no celular, suba diretamente:
                 </p>
                 <label style={{
                   display: "inline-flex", alignItems: "center", gap: "8px",
-                  padding: "10px 16px", borderRadius: "10px", background: "#0f172a",
-                  color: "#fff", fontWeight: 700, fontSize: "0.85rem", cursor: uploadingVideo ? "not-allowed" : "pointer"
+                  padding: "9px 16px", borderRadius: "10px", background: "#334155",
+                  color: "#fff", fontWeight: 700, fontSize: "0.82rem", cursor: uploadingVideo ? "not-allowed" : "pointer"
                 }}>
-                  <Video size={16} />
-                  {uploadingVideo ? "Enviando vídeo..." : "Escolher Arquivo de Vídeo"}
+                  <Video size={15} />
+                  {uploadingVideo ? "Enviando arquivo..." : "Escolher Arquivo de Vídeo"}
                   <input
                     type="file"
                     accept="video/mp4,video/webm,video/quicktime,video/*"
@@ -667,34 +848,8 @@ export function DarkVideoPipeline() {
                 </label>
               </div>
 
-              {/* Opção 2: Link da Shopee */}
-              <div style={{ background: "#f8fafc", borderRadius: "14px", padding: "1.25rem", border: "1px solid #e2e8f0", marginBottom: "1.5rem" }}>
-                <h4 style={{ margin: "0 0 8px 0", fontSize: "0.92rem", fontWeight: 800, color: "#1e293b" }}>
-                  🔗 Ou cole um link da Shopee para puxar o vídeo:
-                </h4>
-                <p style={{ margin: "0 0 12px 0", fontSize: "0.82rem", color: "#64748b" }}>
-                  Você também pode colar qualquer link de afiliado ou produto para extrair o vídeo oficial:
-                </p>
-                <form onSubmit={handleExtractManualUrl} style={{ display: "flex", gap: "8px" }}>
-                  <input
-                    type="text"
-                    value={customVideoUrlInput}
-                    onChange={(e) => setCustomVideoUrlInput(e.target.value)}
-                    placeholder="Cole o link da Shopee aqui..."
-                    style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.82rem" }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={extractingVideo}
-                    style={{ background: "#0f172a", color: "#fff", border: "none", padding: "10px 14px", borderRadius: "8px", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer" }}
-                  >
-                    Extrair
-                  </button>
-                </form>
-              </div>
-
-              {/* Botão de Avançar */}
-              <div style={{ display: "flex", gap: "10px" }}>
+              {/* Botões de Navegação */}
+              <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem" }}>
                 <button
                   onClick={() => setCurrentStep(1)}
                   style={{ padding: "12px 18px", borderRadius: "12px", border: "1px solid #cbd5e1", background: "#fff", color: "#475569", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}
