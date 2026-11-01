@@ -77,6 +77,7 @@ export function DarkVideoPipeline() {
   const [extractingVideo, setExtractingVideo] = useState(false);
   const [sellerVideoUrl, setSellerVideoUrl] = useState<string | null>(null);
   const [customVideoUrlInput, setCustomVideoUrlInput] = useState("");
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   // ── PASSO 3: Narrativa Detalhada com Gemini AI ──
   const [generatingScript, setGeneratingScript] = useState(false);
@@ -201,6 +202,34 @@ export function DarkVideoPipeline() {
       alert("Erro ao extrair vídeo: " + e.message);
     } finally {
       setExtractingVideo(false);
+    }
+  };
+
+  // Upload direto de arquivo de vídeo do computador
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingVideo(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/admin/video/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.videoUrl) {
+        setSellerVideoUrl(data.videoUrl);
+      } else {
+        throw new Error(data.error || "Falha no envio do vídeo");
+      }
+    } catch (err: any) {
+      alert("Erro ao enviar vídeo: " + err.message);
+    } finally {
+      setUploadingVideo(false);
+      e.target.value = "";
     }
   };
 
@@ -613,12 +642,38 @@ export function DarkVideoPipeline() {
 
             {/* Opções e Troca de Vídeo */}
             <div>
-              <div style={{ background: "#f8fafc", borderRadius: "14px", padding: "1.25rem", border: "1px solid #e2e8f0", marginBottom: "1.5rem" }}>
-                <h4 style={{ margin: "0 0 8px 0", fontSize: "0.92rem", fontWeight: 800, color: "#1e293b" }}>
-                  🔗 Quer usar outro link da Shopee?
+              {/* Opção 1: Upload direto de arquivo de vídeo */}
+              <div style={{ background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)", borderRadius: "14px", padding: "1.25rem", border: "1px solid #cbd5e1", marginBottom: "1.25rem" }}>
+                <h4 style={{ margin: "0 0 6px 0", fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                  📁 Carregar Vídeo do seu Computador (MP4 / WebM / MOV)
                 </h4>
                 <p style={{ margin: "0 0 12px 0", fontSize: "0.82rem", color: "#64748b" }}>
-                  Você pode colar qualquer link de afiliado ou link de produto para puxar o vídeo do vendedor correspondente:
+                  Suba qualquer gravação ou vídeo do produto salvo no seu PC para ser o fundo do vídeo com narração neural:
+                </p>
+                <label style={{
+                  display: "inline-flex", alignItems: "center", gap: "8px",
+                  padding: "10px 16px", borderRadius: "10px", background: "#0f172a",
+                  color: "#fff", fontWeight: 700, fontSize: "0.85rem", cursor: uploadingVideo ? "not-allowed" : "pointer"
+                }}>
+                  <Video size={16} />
+                  {uploadingVideo ? "Enviando vídeo..." : "Escolher Arquivo de Vídeo"}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime,video/*"
+                    onChange={handleFileUpload}
+                    disabled={uploadingVideo}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              </div>
+
+              {/* Opção 2: Link da Shopee */}
+              <div style={{ background: "#f8fafc", borderRadius: "14px", padding: "1.25rem", border: "1px solid #e2e8f0", marginBottom: "1.5rem" }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "0.92rem", fontWeight: 800, color: "#1e293b" }}>
+                  🔗 Ou cole um link da Shopee para puxar o vídeo:
+                </h4>
+                <p style={{ margin: "0 0 12px 0", fontSize: "0.82rem", color: "#64748b" }}>
+                  Você também pode colar qualquer link de afiliado ou produto para extrair o vídeo oficial:
                 </p>
                 <form onSubmit={handleExtractManualUrl} style={{ display: "flex", gap: "8px" }}>
                   <input
