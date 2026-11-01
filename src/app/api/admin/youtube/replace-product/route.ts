@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { searchProductOffers } from "@/lib/shopee";
 import {
   generateSingleItemNarration,
   buildFormattedScript,
@@ -102,6 +103,33 @@ export async function POST(req: NextRequest) {
           ],
         });
       }
+    }
+
+    // 3.5. Busca na Shopee Live Search API pelo mesmo gênero / categoria
+    if (!candidate && (productToRemove.categoryName || productToRemove.name)) {
+      try {
+        const kw = productToRemove.categoryName || productToRemove.name.split(" ").slice(0, 3).join(" ");
+        const liveRes = await searchProductOffers({ keyword: kw, sortType: 2, limit: 10 });
+        const liveCandidate = (liveRes.nodes || []).find(
+          (n) => !excludedIds.includes(String(n.itemId)) && !excludedSlugs.includes(String(n.itemId))
+        );
+        if (liveCandidate) {
+          const priceNum = parseFloat(liveCandidate.price) || 0;
+          candidate = {
+            id: String(liveCandidate.itemId),
+            slug: String(liveCandidate.itemId),
+            categoryId: targetCategoryId || "shopee-live",
+            category: { name: productToRemove.categoryName || "Achadinhos" },
+            name: liveCandidate.productName,
+            price: priceNum,
+            ratingStar: parseFloat(liveCandidate.ratingStar) || 4.8,
+            sales: liveCandidate.sales || 0,
+            discountRate: liveCandidate.priceDiscountRate || null,
+            imageUrl: liveCandidate.imageUrl,
+            affiliateLink: liveCandidate.offerLink || liveCandidate.productLink,
+          } as any;
+        }
+      } catch {}
     }
 
     // 4. Se ainda não achou, busca por palavra-chave do produto no banco

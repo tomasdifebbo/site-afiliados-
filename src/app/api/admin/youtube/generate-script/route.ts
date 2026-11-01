@@ -1,46 +1,96 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { searchProductOffers } from "@/lib/shopee";
 import { identifyProductsFromYouTubeVideo } from "@/lib/youtubeBlogSync";
 import { generateTechZoneScriptWithGemini } from "@/lib/geminiTechZoneScript";
+
+export const GENRE_CONFIGS: Record<string, { label: string; theme: string; keywords: string; categoryKeywords: string[] }> = {
+  cozinha: {
+    label: "Casa & Cozinha Prática",
+    theme: "Cozinha Prática & Utensílios Inteligentes",
+    keywords: "utilidades cozinha praticas",
+    categoryKeywords: ["cozinha", "casa", "panela", "pote"],
+  },
+  tecnologia: {
+    label: "Tecnologia & Gadgets Inteligentes",
+    theme: "Tecnologia Inovadora & Gadgets Inteligentes",
+    keywords: "gadgets tecnologia inovadores",
+    categoryKeywords: ["eletronico", "tecnologia", "celular", "fone"],
+  },
+  organizacao: {
+    label: "Organização & Casa",
+    theme: "Organização e Praticidade para Casa",
+    keywords: "organizacao casa praticidade",
+    categoryKeywords: ["casa", "organiz", "limpeza"],
+  },
+  beleza: {
+    label: "Beleza & Cuidados Pessoais",
+    theme: "Beleza, Skincare e Cuidados Pessoais",
+    keywords: "skincare beleza maquiagem",
+    categoryKeywords: ["beleza", "maquiagem", "cuidado"],
+  },
+  moda: {
+    label: "Moda & Calçados em Alta",
+    theme: "Moda, Calçados e Acessórios",
+    keywords: "calcados tenis moda acessorios",
+    categoryKeywords: ["moda", "calcado", "tenis"],
+  },
+  infantil: {
+    label: "Infantil & Brinquedos Criativos",
+    theme: "Achadinhos Infantis e Brinquedos Criativos",
+    keywords: "brinquedos infantil criativo",
+    categoryKeywords: ["infantil", "brinquedo", "bebe"],
+  },
+  ferramentas: {
+    label: "Ferramentas & Automotivo",
+    theme: "Ferramentas Úteis e Acessórios Automotivos",
+    keywords: "ferramentas acessorios automotivos",
+    categoryKeywords: ["ferramenta", "auto", "carro"],
+  },
+  fitness: {
+    label: "Fitness, Treino & Saúde",
+    theme: "Fitness, Treino e Vida Saudável",
+    keywords: "fitness treino academia saude",
+    categoryKeywords: ["fitness", "saude", "esporte"],
+  },
+};
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { postId, categoryId, youtubeUrl, flashDeals, siteUrl = "https://achadinhosdodia.com.br", apiKey } = body;
+    const {
+      postId,
+      categoryId,
+      youtubeUrl,
+      flashDeals,
+      genre = "smart",
+      searchQuery,
+      source = "auto",
+      siteUrl = "https://achadinhosdodia.com.br",
+      apiKey,
+    } = body;
 
     let title = "";
     let products: any[] = [];
     let theme = "";
+
+    // Determina o gênero unificado da seleção
+    let selectedGenreKey = genre;
+    if (!selectedGenreKey || selectedGenreKey === "smart" || selectedGenreKey === "auto") {
+      // Alterna entre os nichos de maior conversão para que cada vídeo tenha 1 gênero único e consistente
+      const topKeys = ["cozinha", "tecnologia", "organizacao", "beleza"];
+      selectedGenreKey = topKeys[Math.floor(Date.now() / (1000 * 60 * 60 * 2)) % topKeys.length];
+    }
+
+    const genreConfig = GENRE_CONFIGS[selectedGenreKey] || GENRE_CONFIGS.cozinha;
+    const activeTheme = searchQuery?.trim() || genreConfig.theme;
+    const targetKeywords = searchQuery?.trim() || (flashDeals ? `${genreConfig.keywords} oferta relampago` : genreConfig.keywords);
 
     if (youtubeUrl) {
       const ytData = await identifyProductsFromYouTubeVideo(youtubeUrl);
       title = ytData.title.startsWith("10") ? ytData.title : `10 Achadinhos da Shopee — ${ytData.title.slice(0, 50)}`;
       theme = ytData.title;
       products = ytData.products;
-    } else if (flashDeals) {
-      title = "10 Super Ofertas Relâmpago da Shopee de Hoje com os Maiores Descontos";
-      theme = "Ofertas Relâmpago Shopee";
-      const candidates = await prisma.product.findMany({
-        where: { price: { gt: 0 }, discountRate: { gte: 15 } },
-        include: { category: true },
-        orderBy: [
-          { discountRate: "desc" },
-          { sales: "desc" },
-          { priceUpdatedAt: "desc" },
-        ],
-        take: 60,
-      });
-      products = selectDiverseProducts(
-        candidates.length >= 5
-          ? candidates
-          : await prisma.product.findMany({
-              where: { price: { gt: 0 } },
-              include: { category: true },
-              orderBy: [{ sales: "desc" }],
-              take: 60,
-            }),
-        10
-      );
     } else if (postId) {
       const post = await prisma.post.findUnique({ where: { id: postId } });
       if (!post) return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
@@ -68,14 +118,104 @@ export async function POST(req: NextRequest) {
       });
       products = selectDiverseProducts(catProducts, 10);
     } else {
-      title = "10 Achadinhos Incríveis da Shopee que Merecem Entrar no seu Radar";
-      const topProducts = await prisma.product.findMany({
-        where: { ratingStar: { gte: 4 }, price: { gt: 0 } },
-        include: { category: true },
-        orderBy: { sales: "desc" },
-        take: 60,
-      });
-      products = selectDiverseProducts(topProducts, 10);
+      // 🚀 FONTE AUTOMÁTICA OU OFERTAS RELÂMPAGO INTEGRADA COM BUSCA AO VIVO NA SHOPEE
+      // Garante produtos em tempo real do MESMO GÊNERO com links de afiliados oficiais
+      if (flashDeals) {
+        title = `10 Super Ofertas Relâmpago da Shopee em ${genreConfig.label} com os Maiores Descontos`;
+        theme = `Ofertas Relâmpago — ${genreConfig.label}`;
+      } else if (searchQuery?.trim()) {
+        title = `10 Melhores Achadinhos de ${searchQuery.trim()} da Shopee que Valem a Pena`;
+        theme = searchQuery.trim();
+      } else {
+        title = `10 Achadinhos Imperdíveis de ${genreConfig.label} da Shopee que Facilitam a Vida`;
+        theme = genreConfig.theme;
+      }
+
+      // 1. Tenta buscar ao vivo na Shopee via Live Search API
+      try {
+        const liveRes = await searchProductOffers({
+          keyword: targetKeywords,
+          sortType: 2, // mais vendidos
+          limit: 35,
+        });
+
+        if (liveRes.nodes && liveRes.nodes.length >= 5) {
+          let candidateNodes = liveRes.nodes;
+          if (flashDeals) {
+            const withDiscount = liveRes.nodes.filter((n) => (n.priceDiscountRate || 0) >= 15);
+            if (withDiscount.length >= 6) {
+              candidateNodes = withDiscount;
+            }
+          }
+
+          const mappedLiveProducts = candidateNodes.map((node) => {
+            const priceNum = parseFloat(node.price) || 0;
+            const originalPriceNum = node.priceMax ? parseFloat(node.priceMax) : null;
+            const discount =
+              node.priceDiscountRate ||
+              (originalPriceNum && originalPriceNum > priceNum
+                ? Math.round((1 - priceNum / originalPriceNum) * 100)
+                : null);
+
+            return {
+              id: String(node.itemId),
+              itemId: String(node.itemId),
+              shopId: String(node.shopId),
+              name: node.productName,
+              price: priceNum,
+              originalPrice: originalPriceNum,
+              discountRate: discount,
+              imageUrl: node.imageUrl,
+              affiliateLink: node.offerLink || node.productLink,
+              sales: node.sales || 0,
+              ratingStar: parseFloat(node.ratingStar) || 4.8,
+              categoryName: genreConfig.label,
+              slug: node.productName
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]+/g, "-")
+                .slice(0, 40),
+            };
+          });
+
+          products = selectDiverseProducts(mappedLiveProducts, 10);
+        }
+      } catch (shopeeErr: any) {
+        console.warn("Aviso: Live Shopee Search indisponível, usando banco local:", shopeeErr.message);
+      }
+
+      // 2. Se a Live Search da Shopee não retornou o mínimo de produtos, busca no banco local filtrando estritamente pelo MESMO gênero
+      if (products.length < 5) {
+        const categoryFilters = genreConfig.categoryKeywords.map((kw) => ({
+          name: { contains: kw },
+        }));
+
+        const matchingCats = await prisma.category.findMany({
+          where: { OR: categoryFilters },
+          select: { id: true },
+        });
+
+        const catIds = matchingCats.map((c) => c.id);
+        const whereClause: any = { price: { gt: 0 } };
+        if (catIds.length > 0) {
+          whereClause.categoryId = { in: catIds };
+        }
+        if (flashDeals) {
+          whereClause.discountRate = { gte: 15 };
+        } else {
+          whereClause.ratingStar = { gte: 4 };
+        }
+
+        const localCandidates = await prisma.product.findMany({
+          where: whereClause,
+          include: { category: true },
+          orderBy: flashDeals ? [{ discountRate: "desc" }, { sales: "desc" }] : [{ sales: "desc" }],
+          take: 60,
+        });
+
+        products = selectDiverseProducts(localCandidates, 10);
+      }
     }
 
     if (products.length === 0) {
@@ -112,14 +252,14 @@ export async function POST(req: NextRequest) {
         id: p.id,
         slug: p.slug,
         categoryId: p.categoryId || (p as any).category?.id || null,
-        categoryName: (p as any).category?.name || "",
+        categoryName: p.categoryName || (p as any).category?.name || "Achadinhos",
         name: p.name,
         price: p.price,
         ratingStar: p.ratingStar,
         sales: p.sales,
         discountRate: p.discountRate,
         imageUrl: p.imageUrl,
-        link: `${siteUrl}/go/${p.slug}?origin=youtube_dark`,
+        link: p.affiliateLink || `${siteUrl}/go/${p.slug}?origin=youtube_dark`,
       })),
     });
   } catch (err: any) {

@@ -76,7 +76,9 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 export function YouTubeScriptGenerator({ posts, categories }: Props) {
   const [mainSection, setMainSection] = useState<"pipeline" | "youtube">("pipeline");
-  const [source, setSource] = useState<"auto" | "flash" | "post" | "category" | "youtube">("auto");
+  const [source, setSource] = useState<"auto" | "flash" | "search" | "post" | "category" | "youtube">("auto");
+  const [selectedGenre, setSelectedGenre] = useState("smart");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedPostId, setSelectedPostId] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -109,8 +111,21 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
     setResult(null);
     setVideoResult(null);
 
-    const body: any = { siteUrl };
+    const body: any = {
+      siteUrl,
+      source,
+      genre: selectedGenre === "custom" ? "smart" : selectedGenre,
+      searchQuery: (source === "search" || selectedGenre === "custom") ? searchQuery.trim() : undefined,
+    };
     if (source === "flash") body.flashDeals = true;
+    if (source === "search") {
+      if (!searchQuery.trim()) {
+        setError("Por favor, digite um termo ou nicho para buscar na Shopee.");
+        setLoading(false);
+        return;
+      }
+      body.searchQuery = searchQuery.trim();
+    }
     if (source === "post" && selectedPostId) body.postId = selectedPostId;
     if (source === "category" && selectedCategoryId) body.categoryId = selectedCategoryId;
     if (source === "youtube") {
@@ -374,13 +389,58 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
               onChange={(e) => setSource(e.target.value as any)}
               style={{ width: "100%", padding: "0.65rem 1rem", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "0.9rem" }}
             >
-              <option value="auto">🔥 Automático — Top vendas do site</option>
+              <option value="auto">🔥 Automático — Top vendas (Live Shopee)</option>
               <option value="flash">⚡ Ofertas Relâmpago do Dia (Maiores Descontos)</option>
+              <option value="search">🔍 Buscar Nicho Direto na Shopee (Live API)</option>
               <option value="youtube">🎥 A partir de um Vídeo do YouTube (Identificar Produtos)</option>
               <option value="post">📝 A partir de um artigo do blog</option>
               <option value="category">📂 A partir de uma categoria</option>
             </select>
           </div>
+
+          {/* Seletor de Gênero / Nicho para garantir produtos do mesmo gênero */}
+          {(source === "auto" || source === "flash" || source === "search") && (
+            <div>
+              <label style={{ display: "block", fontWeight: 700, fontSize: "0.85rem", color: "#475569", marginBottom: "6px" }}>
+                🎯 Gênero / Nicho do Vídeo (Produtos do mesmo tema)
+              </label>
+              <select
+                value={selectedGenre}
+                onChange={(e) => setSelectedGenre(e.target.value)}
+                style={{ width: "100%", padding: "0.65rem 1rem", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "0.9rem" }}
+              >
+                <option value="smart">✨ Inteligente (IA escolhe um gênero vencedor do dia)</option>
+                <option value="cozinha">🍳 Casa, Cozinha & Utensílios Práticos</option>
+                <option value="tecnologia">📱 Tecnologia & Gadgets Inteligentes</option>
+                <option value="organizacao">🧹 Organização & Casa</option>
+                <option value="beleza">💄 Beleza, Skincare & Cuidados</option>
+                <option value="moda">👟 Moda & Calçados em Alta</option>
+                <option value="infantil">🧸 Infantil & Brinquedos Criativos</option>
+                <option value="ferramentas">🛠️ Ferramentas & Automotivo</option>
+                <option value="fitness">💪 Fitness & Vida Saudável</option>
+                <option value="custom">✍️ Digitar Nicho ou Termo Específico...</option>
+              </select>
+            </div>
+          )}
+
+          {/* Campo de Busca Direta por Nicho / Palavra-chave */}
+          {(source === "search" || selectedGenre === "custom") && (
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={{ display: "block", fontWeight: 700, fontSize: "0.85rem", color: "#475569", marginBottom: "6px" }}>
+                🔎 Termo de Busca na Shopee (Live Search API)
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: air fryer, gadgets inteligentes, fone bluetooth, organizadores, maquiagem..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: "100%", padding: "0.65rem 1rem", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "0.9rem" }}
+              />
+              <span style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "4px", display: "block" }}>
+                ⚡ Busca direto na Open API da Shopee produtos reais mais vendidos desse nicho e converte automaticamente em links de afiliados.
+              </span>
+            </div>
+          )}
 
           {/* YouTube Video URL input */}
           {source === "youtube" && (
@@ -452,6 +512,12 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
             />
           </div>
         </div>
+
+        {(source === "auto" || source === "flash" || source === "search") && (
+          <div style={{ marginTop: "1.25rem", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 16px", borderRadius: "12px", fontSize: "0.85rem", color: "#166534", display: "flex", alignItems: "center", gap: "10px" }}>
+            <span>⚡ <strong>Mecanismo Live Search Shopee Integrado:</strong> tanto o <em>Top Vendas</em> quanto as <em>Ofertas Relâmpago</em> consultam em tempo real a API da Shopee e trazem 10 produtos 100% focados no mesmo gênero selecionado, com links de afiliados oficiais pré-gerados.</span>
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: "12px", marginTop: "1.5rem", flexWrap: "wrap" }}>
           <button
