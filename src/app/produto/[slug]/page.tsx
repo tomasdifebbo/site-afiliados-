@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { ShoppingBag, CheckCircle2, Share2, ArrowLeft, Star, Flame, Tag, ShieldCheck } from "lucide-react";
 import { Metadata } from "next";
+import PriceCompare from "@/components/PriceCompare";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -98,9 +99,16 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             </div>
           </div>
 
+          {product.mlPrice && (product.mlLink || product.mlAffiliateLink) && product.price ? (
+            <div style={{ marginBottom: '0.8rem' }}>
+              <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Compare antes de comprar:</div>
+              <PriceCompare slug={product.slug} origin="product_page" shopeePrice={product.price} mlPrice={product.mlPrice} size="large" />
+            </div>
+          ) : (
           <a href={`/go/${product.slug}?origin=product_page`} target="_blank" className="btn btn-primary" style={{ width: '100%', padding: '1.4rem', fontSize: '1.15rem', marginBottom: '0.8rem', gap: '12px' }}>
             Ver Oferta na Shopee <ShoppingBag size={22} />
           </a>
+          )}
           <p style={{ fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginBottom: '2rem' }}>
             🔒 Você será direcionado para a loja oficial do vendedor na Shopee. Pagamento e entrega 100% protegidos pela Garantia Shopee.
           </p>

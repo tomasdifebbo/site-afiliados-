@@ -87,6 +87,8 @@ export default async function Home() {
       discountRate: true,
       sales: true,
       ratingStar: true,
+      mlPrice: true,
+      mlLink: true,
       category: {
         select: { name: true, slug: true },
       },

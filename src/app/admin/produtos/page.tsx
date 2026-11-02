@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Plus, Edit3, Trash2, ExternalLink, Zap, CheckCircle2, Clock } from "lucide-react";
 import Link from "next/link";
 import { ShopeeSyncBar } from "./ShopeeSyncBar";
+import { MercadoLivreCompareBar } from "./MercadoLivreCompareBar";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,7 @@ export default async function AdminProductsPage({
 
       {/* Barra de Ações e Automação Shopee */}
       <ShopeeSyncBar />
+      <MercadoLivreCompareBar />
 
       <div
         className="glass shadow-premium"

@@ -38,6 +38,14 @@ model Product {
   discountRate   Int?
   priceUpdatedAt DateTime?
   videoUrl       String?
+  // Comparação com Mercado Livre (preenchido por /api/admin/mercadolivre/compare)
+  mlItemId        String?
+  mlTitle         String?
+  mlPrice         Float?
+  mlLink          String?   // permalink do anúncio/catálogo no ML
+  mlAffiliateLink String?   // link manual do gerador de afiliados ML (opcional, tem prioridade)
+  mlMatchScore    Float?
+  mlCheckedAt     DateTime?
   clicks        Click[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

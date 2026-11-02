@@ -57,10 +57,15 @@ interface SavedVideo {
 
 const TRENDING_TABS = [
   { id: "top_geral", label: "🔥 Top Mais Vendidos Shopee", keyword: "" },
-  { id: "tecnologia", label: "📱 Tecnologia & Gadgets", keyword: "tecnologia utilidades" },
-  { id: "casa", label: "🏠 Casa & Organização", keyword: "casa utilidades organizador" },
-  { id: "cozinha", label: "🍳 Cozinha Inteligente", keyword: "cozinha praticidade" },
-  { id: "beleza", label: "💄 Beleza & Cuidado", keyword: "beleza maquiagem skincare" },
+  { id: "tecnologia", label: "📱 Tecnologia & Eletrônicos", keyword: "eletronicos" },
+  { id: "fone_smart", label: "🎧 Fone Bluetooth & Smartwatch", keyword: "fone bluetooth smartwatch" },
+  { id: "casa", label: "🏠 Casa & Organização", keyword: "casa organizacao" },
+  { id: "cozinha", label: "🍳 Cozinha & Utensílios", keyword: "cozinha utilidades" },
+  { id: "beleza", label: "💄 Beleza & Skincare", keyword: "beleza maquiagem skincare" },
+  { id: "moda", label: "👟 Moda & Acessórios", keyword: "moda calcados" },
+  { id: "infantil", label: "🧸 Brinquedos & Infantil", keyword: "brinquedos infantil" },
+  { id: "ferramentas", label: "🛠️ Ferramentas & Auto", keyword: "ferramentas automotivo" },
+  { id: "fitness", label: "💪 Fitness & Saúde", keyword: "fitness academia" },
 ];
 
 export function DarkVideoPipeline() {
@@ -72,6 +77,9 @@ export function DarkVideoPipeline() {
   const [searchQuery, setSearchQuery] = useState("");
   const [trendingProducts, setTrendingProducts] = useState<ProductItem[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
 
   // ── PASSO 2: Vídeo do Vendedor Shopee ──
@@ -101,22 +109,48 @@ export function DarkVideoPipeline() {
   const [showHistory, setShowHistory] = useState(false);
 
   // Carregar produtos mais vendidos no passo 1
-  const fetchTrendingProducts = async (keyword?: string) => {
-    setLoadingProducts(true);
+  const fetchTrendingProducts = async (keyword?: string, page: number = 1, append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoadingProducts(true);
+      setCurrentPage(1);
+    }
+
     try {
-      const url = keyword?.trim()
-        ? `/api/admin/shopee/search?keyword=${encodeURIComponent(keyword.trim())}&sortType=2&limit=24`
-        : `/api/admin/shopee/search?sortType=2&limit=24`;
-      const res = await fetch(url);
+      const q = keyword !== undefined ? keyword.trim() : (searchQuery.trim() || TRENDING_TABS.find(t => t.id === activeTab)?.keyword || "");
+      const params = new URLSearchParams({
+        sortType: "2",
+        limit: "30",
+        page: String(page),
+      });
+      if (q) {
+        params.set("keyword", q);
+      }
+
+      const res = await fetch(`/api/admin/shopee/search?${params.toString()}`);
       const data = await res.json();
       if (data.nodes) {
-        setTrendingProducts(data.nodes);
+        if (append) {
+          setTrendingProducts((prev) => [...prev, ...data.nodes]);
+          setCurrentPage(page);
+        } else {
+          setTrendingProducts(data.nodes);
+        }
+        setHasNextPage(Boolean(data.pageInfo?.hasNextPage));
       }
     } catch (e: any) {
       console.error("Erro ao buscar mais vendidos:", e);
     } finally {
       setLoadingProducts(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    if (loadingMore || !hasNextPage) return;
+    const currentKeyword = searchQuery.trim() || TRENDING_TABS.find(t => t.id === activeTab)?.keyword || "";
+    fetchTrendingProducts(currentKeyword, currentPage + 1, true);
   };
 
   useEffect(() => {
@@ -624,6 +658,42 @@ export function DarkVideoPipeline() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Botão Carregar Mais Produtos da Shopee */}
+          {!loadingProducts && trendingProducts.length > 0 && hasNextPage && (
+            <div style={{ textAlign: "center", marginTop: "2rem" }}>
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                style={{
+                  background: loadingMore ? "#94a3b8" : "#0f172a",
+                  color: "#fff",
+                  border: "none",
+                  padding: "12px 28px",
+                  borderRadius: "12px",
+                  fontWeight: 800,
+                  fontSize: "0.88rem",
+                  cursor: loadingMore ? "not-allowed" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  boxShadow: "0 4px 14px rgba(15,23,42,0.15)",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {loadingMore ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    Buscando mais na Shopee...
+                  </>
+                ) : (
+                  <>
+                    ⚡ Carregar Mais Produtos da Shopee (Página {currentPage + 1})
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>

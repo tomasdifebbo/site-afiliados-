@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ShoppingBag, Loader2, RefreshCw, Sparkles, Flame, Star, Tag, AlertCircle } from "lucide-react";
+import PriceCompare from "./PriceCompare";
 
 export interface ProductItem {
   id: string;
@@ -12,6 +13,8 @@ export interface ProductItem {
   discountRate?: number | null;
   sales?: number | null;
   ratingStar?: number | null;
+  mlPrice?: number | null;
+  mlLink?: string | null;
   category?: {
     name: string;
     slug: string;
@@ -354,6 +357,14 @@ export default function InfiniteProductGrid({
                 </div>
               ) : null}
 
+              {product.mlPrice && product.mlLink && product.price && product.price > 0 ? (
+                <PriceCompare
+                  slug={product.slug}
+                  origin={categorySlug || "grid"}
+                  shopeePrice={product.price}
+                  mlPrice={product.mlPrice}
+                />
+              ) : (
               <div className="product-card-bottom">
                 <div className="product-card-price-block">
                   {product.discountRate && product.discountRate > 0 && product.price ? (
@@ -386,6 +397,7 @@ export default function InfiniteProductGrid({
                   <ShoppingBag size={14} />
                 </a>
               </div>
+              )}
             </div>
           </div>
         ))}

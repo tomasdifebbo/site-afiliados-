@@ -26,6 +26,8 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         slug: true,
         price: true,
         imageUrl: true,
+        mlPrice: true,
+        mlLink: true,
         category: {
           select: { name: true, slug: true },
         },
