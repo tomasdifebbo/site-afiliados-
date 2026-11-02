@@ -16,6 +16,7 @@ export interface ScriptProductInput {
   categoryName?: string | null;
   description?: string | null;
   apiKey?: string;
+  maskedUrl?: string | null;
 }
 
 // ── Fallback Heurístico Local (Custo R$ 0, sem depender de internet) ───────────
@@ -42,11 +43,15 @@ function fallbackScript(product: ScriptProductInput): GeneratedScriptResult {
 
   const script = `${hook} é o ${shortName}. Ele se destaca pela versatilidade e acabamento, perfeito para quem quer conforto e funcionalidade. No anúncio oficial da Shopee, o preço confirmado é de ${priceFormatted}. Dá uma conferida nas fotos e avaliações completas no link oficial. Este conteúdo contém indicação de afiliado. O link com a oferta está no primeiro comentário e na bio!`;
 
+  const linkLine = product.maskedUrl
+    ? `👉 Link oficial com desconto:\n${product.maskedUrl}`
+    : `👉 Link oficial com desconto no primeiro comentário fixado e na bio!`;
+
   const caption = `✨ Achadinho Shopee: ${shortName}!
 🔥 Preço verificado: ${priceFormatted}
 ⭐ Excelente avaliação de compradores reais!
 
-👉 Link oficial com desconto no primeiro comentário fixado e na bio!
+${linkLine}
 
 ⚠️ Conteúdo com indicação de afiliado. Preços e estoque podem variar.
 
@@ -78,6 +83,7 @@ Sua missão é criar um roteiro sob medida e humanizado para o seguinte produto:
 - Nome Oficial: "${name}"
 - Categoria: ${cat}
 - Preço com Desconto na Shopee: ${priceFormatted}
+${product.maskedUrl ? `- Link Oficial Mascarado do Produto: ${product.maskedUrl}` : ""}
 ${product.description ? `- Detalhes do item: ${product.description.slice(0, 300)}` : ""}
 
 Diretrizes estritas para o roteiro ("script"):
@@ -92,6 +98,7 @@ Diretrizes estritas para o roteiro ("script"):
 
 Diretrizes para a legenda ("caption"):
 - Legenda atrativa com emojis, preço em destaque, chamada para comentar "EU QUERO", hashtags virais (#achadinhos, #shopee, #kwai, #dicas, #comprinhas) e aviso obrigatório de divulgação de afiliado.
+${product.maskedUrl ? `- Inclua exatamente o link mascarado na legenda: ${product.maskedUrl} (sem adicionar parâmetros ou origens extras).` : ""}
 
 Diretrizes para "shortName":
 - Nome curto, direto e comercial (máximo 4 a 5 palavras).

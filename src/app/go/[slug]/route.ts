@@ -49,10 +49,26 @@ export async function GET(
   const { slug } = await params;
 
   // 1. Find the product along with its category
-  const product = await prisma.product.findUnique({
+  let product = await prisma.product.findUnique({
     where: { slug },
     include: { category: true },
   });
+
+  if (!product) {
+    try {
+      const decodedSlug = decodeURIComponent(slug);
+      product = await prisma.product.findFirst({
+        where: {
+          OR: [
+            { slug: decodedSlug },
+            { itemId: slug },
+            { id: slug },
+          ],
+        },
+        include: { category: true },
+      });
+    } catch {}
+  }
 
   if (!product) {
     return NextResponse.redirect(new URL("/", request.url));

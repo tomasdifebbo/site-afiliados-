@@ -110,7 +110,7 @@ export function getShopeeBookmarkletCode(siteUrl = "https://achadinhos-do-dia-se
       '</div>' +
       '<div style="font-weight:bold;font-size:12px;margin-bottom:8px;color:#f8fafc;">' + vid.title + '</div>' +
       '<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;background:#000;">' +
-        '<video src="' + vid.url + '" controls style="width:100%;max-height:160px;object-fit:contain;"></video>' +
+        '<video src="' + vid.url + '" controls referrerpolicy="no-referrer" style="width:100%;max-height:160px;object-fit:contain;"></video>' +
       '</div>' +
       '<div style="display:flex;gap:6px;">' +
         '<button class="use-btn-' + i + '" style="flex:1;background:linear-gradient(135deg,#FF5722,#FF7A00);color:#fff;border:none;padding:8px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:11px;">🚀 Usar no Dark Video</button>' +

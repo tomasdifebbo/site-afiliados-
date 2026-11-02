@@ -6,12 +6,13 @@ import { synthesizeVoiceWithGemini } from "@/lib/geminiAudioGenerator";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, productName, price, categoryName, apiKey, withAudio = true } = body;
+    const { id, productName, price, categoryName, apiKey, withAudio = true, maskedUrl } = body;
 
     let targetProduct = {
       name: productName || "",
       price: price || null,
       categoryName: categoryName || null,
+      maskedUrl: maskedUrl || null,
     };
 
     if (id) {
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
           name: item.productName,
           price: item.price,
           categoryName: item.categoryName,
+          maskedUrl: maskedUrl || (item.affiliateLink?.includes("/go/") ? item.affiliateLink : null),
         };
       }
     }
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
       name: targetProduct.name,
       price: targetProduct.price,
       categoryName: targetProduct.categoryName,
+      maskedUrl: targetProduct.maskedUrl,
       apiKey,
     });
 

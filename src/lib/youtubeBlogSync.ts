@@ -530,7 +530,7 @@ export function buildBlogContentHtml(
         </div>
       </div>
 
-      <a href="/go/${p.slug}?origin=blog_youtube" target="_blank" rel="noopener noreferrer" style="margin-top: 1rem; display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #FF5722 0%, #FF7A00 100%); color: #ffffff; font-weight: 700; font-size: 0.95rem; padding: 0.75rem 1rem; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 12px rgba(255, 87, 34, 0.28);">
+      <a href="/go/${p.slug}" target="_blank" rel="noopener noreferrer" style="margin-top: 1rem; display: flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #FF5722 0%, #FF7A00 100%); color: #ffffff; font-weight: 700; font-size: 0.95rem; padding: 0.75rem 1rem; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 12px rgba(255, 87, 34, 0.28);">
         🛒 Ver Oferta na Shopee
       </a>
     </div>

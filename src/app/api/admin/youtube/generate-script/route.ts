@@ -566,7 +566,7 @@ export function generateDescription({ title, products, siteUrl }: {
     `🔗 Links dos produtos (em ordem):`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     ``,
-    ...products.map((p, i) => `${i + 1}. ${p.name.slice(0, 55)} → ${siteUrl}/go/${p.slug}?origin=yt_desc`),
+    ...products.map((p, i) => `${i + 1}. ${p.name.slice(0, 55)} → ${siteUrl}/go/${p.slug}`),
     ``,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     `🌐 Site com mais seleções:`,

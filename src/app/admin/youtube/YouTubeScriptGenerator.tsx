@@ -1061,6 +1061,25 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
                           R$ {p.price ? p.price.toFixed(2).replace(".", ",") : "—"}
                         </div>
                         <div style={{ color: "#f59e0b", fontSize: "0.8rem", marginTop: "2px" }}>★ {p.ratingStar?.toFixed(1) || "4.9"}</div>
+                        {p.slug && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "6px", background: "#f8fafc", padding: "3px 6px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                            <span style={{ fontSize: "0.68rem", color: "#FF5722", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "140px" }}>
+                              /go/{p.slug}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const fullUrl = `${siteUrl}/go/${p.slug}`;
+                                navigator.clipboard.writeText(fullUrl);
+                                alert(`Link copiado: ${fullUrl}`);
+                              }}
+                              title="Copiar link mascarado oficial"
+                              style={{ background: "none", border: "none", color: "#475569", cursor: "pointer", padding: "0 2px", display: "flex", alignItems: "center" }}
+                            >
+                              <Copy size={11} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 

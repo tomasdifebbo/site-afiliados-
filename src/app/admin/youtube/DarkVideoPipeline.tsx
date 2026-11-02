@@ -39,6 +39,8 @@ interface ProductItem {
   productLink?: string;
   offerLink?: string;
   videoUrl?: string | null;
+  slug?: string;
+  maskedUrl?: string;
 }
 
 interface SavedVideo {
@@ -98,6 +100,11 @@ export function DarkVideoPipeline() {
   const [customVideoUrlInput, setCustomVideoUrlInput] = useState("");
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [copiedBookmarklet, setCopiedBookmarklet] = useState(false);
+
+  // Link do Produto Mascarado (/go/[slug])
+  const [maskedLink, setMaskedLink] = useState<string>("");
+  const [copiedMaskedLink, setCopiedMaskedLink] = useState(false);
+  const [loadingMaskedLink, setLoadingMaskedLink] = useState(false);
 
   // ── PASSO 3: Narrativa Detalhada com Gemini AI ──
   const [generatingScript, setGeneratingScript] = useState(false);
@@ -201,19 +208,64 @@ export function DarkVideoPipeline() {
           { url: urlVideo, title: "Vídeo Puxado da Shopee (Galeria/Comentário)", type: "shopee" }
         ]);
         if (pName) {
-          setSelectedProduct({
+          const item: ProductItem = {
             productName: pName,
             price: pPrice || "0",
             imageUrl: pImg || "",
             productLink: pLink || "",
             itemId: "puxado-" + Date.now(),
             shopId: "shopee",
-          });
+          };
+          setSelectedProduct(item);
+          ensureMaskedLink(item);
           setCurrentStep(2);
         }
       }
     }
   }, []);
+
+  // Assegura link mascarado oficial no banco (/go/[slug])
+  const ensureMaskedLink = async (prod: ProductItem): Promise<string> => {
+    setLoadingMaskedLink(true);
+    const origin = typeof window !== "undefined" && window.location.origin.includes("localhost")
+      ? window.location.origin
+      : "https://achadinhosdodia.com.br";
+    try {
+      const res = await fetch("/api/admin/products/ensure-masked", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: prod.productName,
+          price: prod.price,
+          imageUrl: prod.imageUrl,
+          affiliateLink: prod.offerLink || prod.productLink,
+          itemId: prod.itemId,
+          shopId: prod.shopId,
+          siteUrl: origin,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.maskedUrl) {
+        setMaskedLink(data.maskedUrl);
+        setSelectedProduct((prev) => (prev ? { ...prev, slug: data.slug, maskedUrl: data.maskedUrl } : null));
+        setLoadingMaskedLink(false);
+        return data.maskedUrl;
+      }
+    } catch (err) {
+      console.error("Erro ao gerar link mascarado:", err);
+    }
+    const cleanSlug = prod.productName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 35);
+    const fallback = `${origin}/go/${cleanSlug}`;
+    setMaskedLink(fallback);
+    setLoadingMaskedLink(false);
+    return fallback;
+  };
 
   const handleTabChange = (tab: typeof TRENDING_TABS[0]) => {
     setActiveTab(tab.id);
@@ -251,6 +303,7 @@ export function DarkVideoPipeline() {
       setAvailableVideos([]);
     }
     setCurrentStep(2);
+    ensureMaskedLink(prod);
 
     // Se já não tiver vídeo, tenta extrair imediatamente
     if (!prod.videoUrl) {
@@ -356,6 +409,7 @@ export function DarkVideoPipeline() {
           productName: selectedProduct.productName,
           price: Number(selectedProduct.price) || null,
           categoryName: "Achadinhos Shopee",
+          maskedUrl: maskedLink,
           withAudio: true,
         }),
       });
@@ -425,7 +479,7 @@ export function DarkVideoPipeline() {
           sellerVideoUrl: sellerVideoUrl,
           scriptText: scriptText,
           captionText: captionText,
-          affiliateLink: selectedProduct.offerLink || selectedProduct.productLink,
+          affiliateLink: maskedLink || selectedProduct.offerLink || selectedProduct.productLink,
           sales: selectedProduct.sales,
           discountRate: selectedProduct.priceDiscountRate || selectedProduct.discountRate,
         }),
@@ -457,6 +511,7 @@ export function DarkVideoPipeline() {
     setScriptText("");
     setCaptionText("");
     setFinalVideoUrl(null);
+    setMaskedLink("");
     setCurrentStep(1);
   };
 
@@ -742,23 +797,81 @@ export function DarkVideoPipeline() {
       {/* ── PASSO 2: VÍDEO DO PRODUTO (VENDEDOR SHOPEE) ── */}
       {currentStep === 2 && selectedProduct && (
         <div style={{ background: "#fff", borderRadius: "20px", border: "1px solid #e2e8f0", padding: "2rem", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          {/* Barra do Produto Selecionado */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc", padding: "12px 18px", borderRadius: "14px", marginBottom: "1.75rem", border: "1px solid #e2e8f0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <img src={selectedProduct.imageUrl} alt="" style={{ width: "50px", height: "50px", borderRadius: "10px", objectFit: "cover" }} />
-              <div>
-                <span style={{ fontSize: "0.72rem", color: "#FF5722", fontWeight: 800 }}>PRODUTO SELECIONADO</span>
-                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#0f172a", maxWidth: "500px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {selectedProduct.productName}
-                </h4>
+          {/* Barra do Produto Selecionado com Link Mascarado Oficial */}
+          <div style={{ background: "#f8fafc", padding: "14px 18px", borderRadius: "16px", marginBottom: "1.75rem", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                <img src={selectedProduct.imageUrl} alt="" style={{ width: "52px", height: "52px", borderRadius: "12px", objectFit: "cover", flexShrink: 0, border: "1px solid #e2e8f0" }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
+                    <span style={{ fontSize: "0.72rem", color: "#FF5722", fontWeight: 800 }}>PRODUTO SELECIONADO</span>
+                    {selectedProduct.price && (
+                      <span style={{ fontSize: "0.74rem", fontWeight: 800, color: "#16a34a", background: "#dcfce7", padding: "1px 7px", borderRadius: "4px" }}>
+                        R$ {Number(selectedProduct.price).toFixed(2).replace(".", ",")}
+                      </span>
+                    )}
+                  </div>
+                  <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#0f172a", maxWidth: "580px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {selectedProduct.productName}
+                  </h4>
+                </div>
+              </div>
+              <button
+                onClick={() => setCurrentStep(1)}
+                style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "7px 14px", borderRadius: "8px", fontSize: "0.8rem", fontWeight: 700, color: "#475569", cursor: "pointer" }}
+              >
+                Trocar Produto
+              </button>
+            </div>
+
+            {/* Linha do Link Mascarado Oficial (/go/[slug]) */}
+            <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" }}>
+                  🔗 Link Mascarado:
+                </span>
+                <code style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "4px 10px", borderRadius: "8px", fontSize: "0.8rem", color: "#FF5722", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "480px" }}>
+                  {loadingMaskedLink ? "Gerando link mascarado seguro..." : (maskedLink || "Carregando...")}
+                </code>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  onClick={() => {
+                    if (maskedLink) {
+                      navigator.clipboard.writeText(maskedLink);
+                      setCopiedMaskedLink(true);
+                      setTimeout(() => setCopiedMaskedLink(false), 2500);
+                    }
+                  }}
+                  disabled={!maskedLink || loadingMaskedLink}
+                  style={{
+                    padding: "6px 12px", borderRadius: "8px",
+                    background: copiedMaskedLink ? "#dcfce7" : "#0f172a",
+                    color: copiedMaskedLink ? "#15803d" : "#fff",
+                    border: "none", fontSize: "0.78rem", fontWeight: 800,
+                    cursor: "pointer", display: "flex", alignItems: "center", gap: "5px"
+                  }}
+                >
+                  {copiedMaskedLink ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedMaskedLink ? "Link Copiado!" : "Copiar Link Mascarado"}
+                </button>
+                {maskedLink && (
+                  <a
+                    href={maskedLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: "6px 12px", borderRadius: "8px",
+                      background: "#fff", color: "#334155",
+                      border: "1px solid #cbd5e1", fontSize: "0.78rem", fontWeight: 700,
+                      textDecoration: "none", display: "flex", alignItems: "center", gap: "4px"
+                    }}
+                  >
+                    <ExternalLink size={13} /> Testar Redirecionamento
+                  </a>
+                )}
               </div>
             </div>
-            <button
-              onClick={() => setCurrentStep(1)}
-              style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "6px 14px", borderRadius: "8px", fontSize: "0.8rem", fontWeight: 700, color: "#475569", cursor: "pointer" }}
-            >
-              Trocar Produto
-            </button>
           </div>
 
           <h2 style={{ fontSize: "1.35rem", fontWeight: 900, margin: "0 0 6px 0", color: "#0f172a" }}>
@@ -1060,6 +1173,25 @@ export function DarkVideoPipeline() {
 
               {/* Legenda Pronta */}
               <div>
+                {maskedLink && (
+                  <div style={{ marginBottom: "8px", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "6px 12px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#475569" }}>🔗 Link Mascarado Oficial:</span>
+                      <span style={{ fontSize: "0.78rem", color: "#FF5722", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{maskedLink}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(maskedLink);
+                        setCopiedMaskedLink(true);
+                        setTimeout(() => setCopiedMaskedLink(false), 2000);
+                      }}
+                      style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "2px 8px", color: "#0f172a", cursor: "pointer", fontSize: "0.72rem", fontWeight: 800, whiteSpace: "nowrap" }}
+                    >
+                      {copiedMaskedLink ? "✅ Copiado!" : "📋 Copiar"}
+                    </button>
+                  </div>
+                )}
+
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                   <label style={{ fontSize: "0.85rem", fontWeight: 800, color: "#1e293b" }}>
                     📱 Legenda Pronta (TikTok, Kwai, Shorts & Reels):
@@ -1162,6 +1294,14 @@ export function DarkVideoPipeline() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "0.85rem", color: "#475569" }}>
                   <div><strong>Produto:</strong> {selectedProduct.productName}</div>
                   <div><strong>Preço no Vídeo:</strong> R$ {Number(selectedProduct.price || 0).toFixed(2).replace(".", ",")}</div>
+                  {maskedLink && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                      <strong>Link Mascarado:</strong>
+                      <code style={{ color: "#FF5722", fontWeight: 700, fontSize: "0.8rem", background: "#fff", padding: "2px 6px", borderRadius: "4px", border: "1px solid #e2e8f0" }}>
+                        {maskedLink}
+                      </code>
+                    </div>
+                  )}
                   <div><strong>Vídeo Demonstrativo:</strong> {sellerVideoUrl ? "✅ Vídeo Original do Vendedor Shopee" : "Foto Oficial HD"}</div>
                   <div><strong>Narração:</strong> {narrationAudioUrl ? "✅ Google Gemini Audio API (Pronta)" : "Google Gemini TTS Neural (pt-BR)"}</div>
                 </div>
