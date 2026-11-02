@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { getShopeeBookmarkletCode } from "@/lib/shopeeBookmarklet";
 import {
   Sparkles,
@@ -82,6 +82,15 @@ export function DarkVideoPipeline() {
   const [hasNextPage, setHasNextPage] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
 
+  // Sentinel ref para IntersectionObserver (Rolagem Infinita)
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreRef = useRef(false);
+  loadingMoreRef.current = loadingMore;
+  const hasNextPageRef = useRef(true);
+  hasNextPageRef.current = hasNextPage;
+  const currentPageRef = useRef(1);
+  currentPageRef.current = currentPage;
+
   // ── PASSO 2: Vídeo do Vendedor Shopee ──
   const [extractingVideo, setExtractingVideo] = useState(false);
   const [sellerVideoUrl, setSellerVideoUrl] = useState<string | null>(null);
@@ -147,11 +156,31 @@ export function DarkVideoPipeline() {
     }
   };
 
-  const handleLoadMore = () => {
-    if (loadingMore || !hasNextPage) return;
+  const handleLoadMore = useCallback(() => {
+    if (loadingMoreRef.current || !hasNextPageRef.current) return;
     const currentKeyword = searchQuery.trim() || TRENDING_TABS.find(t => t.id === activeTab)?.keyword || "";
-    fetchTrendingProducts(currentKeyword, currentPage + 1, true);
-  };
+    fetchTrendingProducts(currentKeyword, currentPageRef.current + 1, true);
+  }, [searchQuery, activeTab]);
+
+  // Observer para Rolagem Infinita automática
+  useEffect(() => {
+    if (currentStep !== 1) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting && !loadingMoreRef.current && hasNextPageRef.current) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: "300px" }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [currentStep, handleLoadMore]);
 
   useEffect(() => {
     fetchTrendingProducts();
@@ -661,39 +690,50 @@ export function DarkVideoPipeline() {
             </div>
           )}
 
-          {/* Botão Carregar Mais Produtos da Shopee */}
-          {!loadingProducts && trendingProducts.length > 0 && hasNextPage && (
-            <div style={{ textAlign: "center", marginTop: "2rem" }}>
-              <button
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                style={{
-                  background: loadingMore ? "#94a3b8" : "#0f172a",
-                  color: "#fff",
-                  border: "none",
-                  padding: "12px 28px",
-                  borderRadius: "12px",
-                  fontWeight: 800,
-                  fontSize: "0.88rem",
-                  cursor: loadingMore ? "not-allowed" : "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  boxShadow: "0 4px 14px rgba(15,23,42,0.15)",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {loadingMore ? (
-                  <>
-                    <RefreshCw size={16} className="animate-spin" />
-                    Buscando mais na Shopee...
-                  </>
-                ) : (
-                  <>
-                    ⚡ Carregar Mais Produtos da Shopee (Página {currentPage + 1})
-                  </>
-                )}
-              </button>
+          {/* Sentinel e Indicador para Rolagem Infinita Automática */}
+          {!loadingProducts && trendingProducts.length > 0 && (
+            <div
+              ref={sentinelRef}
+              style={{
+                textAlign: "center",
+                padding: "2rem 1rem",
+                marginTop: "1.5rem",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+              }}
+            >
+              {loadingMore ? (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", color: "#FF5722", fontWeight: 800, fontSize: "0.9rem" }}>
+                  <RefreshCw size={20} className="animate-spin" />
+                  Carregando mais produtos da Shopee automaticamente...
+                </div>
+              ) : hasNextPage ? (
+                <button
+                  onClick={handleLoadMore}
+                  style={{
+                    background: "#0f172a",
+                    color: "#fff",
+                    border: "none",
+                    padding: "10px 22px",
+                    borderRadius: "10px",
+                    fontWeight: 700,
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  ⚡ Role para baixo ou clique para carregar mais (Página {currentPage + 1})
+                </button>
+              ) : (
+                <div style={{ color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600 }}>
+                  ✓ Todos os produtos disponíveis na Shopee para este nicho foram carregados.
+                </div>
+              )}
             </div>
           )}
         </div>
