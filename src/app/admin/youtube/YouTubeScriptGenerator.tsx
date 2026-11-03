@@ -393,9 +393,11 @@ export function YouTubeScriptGenerator({ posts, categories }: Props) {
     <div style={{ padding: "3rem", color: "#000" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "1.5rem" }}>
-        <div style={{ width: "52px", height: "52px", borderRadius: "16px", background: "linear-gradient(135deg,#FF5722,#FF7A00)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Video size={28} color="#fff" />
-        </div>
+        <img
+          src="/logo.png"
+          alt="Canal Achadinhos do Dia"
+          style={{ width: "54px", height: "54px", borderRadius: "50%", objectFit: "cover", border: "2px solid #0066FF", boxShadow: "0 0 14px rgba(0, 102, 255, 0.35)", flexShrink: 0 }}
+        />
         <div>
           <h1 style={{ fontFamily: "var(--font-outfit)", fontSize: "2.2rem", fontWeight: 800, margin: 0 }}>
             Gerador de Roteiro e Vídeo YouTube

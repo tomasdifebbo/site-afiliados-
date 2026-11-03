@@ -14,8 +14,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         gap: '0.5rem',
         backgroundColor: '#fff'
       }}>
-        <div style={{ marginBottom: '2.5rem', padding: '0 1rem' }}>
-          <h3 style={{ fontSize: '0.75rem', fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Menu Principal</h3>
+        <div style={{ marginBottom: '2rem', padding: '0 0.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img
+            src="/logo.png"
+            alt="Logo Achadinhos do Dia"
+            style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #0066FF', boxShadow: '0 0 10px rgba(0, 102, 255, 0.35)', flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontFamily: 'var(--font-outfit)', fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>
+              Achadinhos<span style={{ color: 'hsl(var(--primary))' }}>doDia</span>
+            </div>
+            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Painel Oficial</div>
+          </div>
         </div>
         
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

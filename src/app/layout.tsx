@@ -7,9 +7,20 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://achadinhosdodia.com.br"),
   title: "Achadinhos do Dia | Melhores Ofertas Shopee, Amazon e Mais",
   description: "Curadoria diária dos produtos mais úteis, baratos e virais da internet. Economize tempo e dinheiro com nossos achadinhos.",
   keywords: ["ofertas", "achadinhos", "shopee", "promoção", "descontos", "produtos baratos"],
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
+  openGraph: {
+    title: "Achadinhos do Dia | Melhores Ofertas Shopee e Mais",
+    description: "Curadoria diária dos produtos mais úteis, baratos e virais da internet.",
+    images: [{ url: "/logo.png", width: 800, height: 800, alt: "Achadinhos do Dia" }],
+  },
 };
 
 export const viewport = {
@@ -27,13 +38,28 @@ export default function RootLayout({
       <body className={`${inter.variable} ${outfit.variable}`}>
         <header className="glass shadow-premium" style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid hsl(var(--border))' }}>
           <div className="container" style={{ height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <div style={{ width: '38px', height: '38px', backgroundColor: 'hsl(var(--primary))', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: 'white', fontWeight: 800, fontSize: '1.4rem' }}>A</span>
+            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, textDecoration: 'none' }}>
+              <img
+                src="/logo.png"
+                alt="Logo Achadinhos do Dia"
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid #0066FF',
+                  boxShadow: '0 0 12px rgba(0, 102, 255, 0.35)',
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                <h1 className="header-logo-text" style={{ fontFamily: 'var(--font-outfit)', fontSize: '1.45rem', fontWeight: 900, color: 'hsl(var(--secondary))', margin: 0, letterSpacing: '-0.02em' }}>
+                  Achadinhos<span style={{ color: 'hsl(var(--primary))' }}>doDia</span>
+                </h1>
+                <span style={{ fontSize: '0.66rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Ofertas Incríveis
+                </span>
               </div>
-              <h1 className="header-logo-text" style={{ fontFamily: 'var(--font-outfit)', fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--secondary))', margin: 0 }}>
-                Achadinhos<span style={{ color: 'hsl(var(--primary))' }}>doDia</span>
-              </h1>
             </a>
 
             {/* Campo de Busca Rápida na Shopee */}
@@ -55,7 +81,25 @@ export default function RootLayout({
           <div className="container">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '3rem', marginBottom: '3rem' }}>
               <div>
-                <h3 style={{ fontFamily: 'var(--font-outfit)', marginBottom: '1rem' }}>Achadinhos do Dia</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+                  <img
+                    src="/logo.png"
+                    alt="Logo Achadinhos do Dia"
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid #0066FF',
+                      boxShadow: '0 0 10px rgba(0, 102, 255, 0.35)',
+                      flexShrink: 0
+                    }}
+                  />
+                  <div>
+                    <h3 style={{ fontFamily: 'var(--font-outfit)', margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Achadinhos do Dia</h3>
+                    <span style={{ fontSize: '0.74rem', color: '#f59e0b', fontWeight: 700 }}>Tudo o que você precisa em um só lugar</span>
+                  </div>
+                </div>
                 <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.9rem' }}>
                   Sua curadoria diária de produtos incríveis com os melhores preços da internet.
                 </p>

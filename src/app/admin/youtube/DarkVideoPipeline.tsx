@@ -531,8 +531,9 @@ export function DarkVideoPipeline() {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "1.25rem" }}>
           <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(255, 87, 34, 0.15)", border: "1px solid rgba(255, 87, 34, 0.4)", color: "#FF7A00", padding: "4px 12px", borderRadius: "100px", fontSize: "0.78rem", fontWeight: 800, marginBottom: "8px" }}>
-              <Sparkles size={14} /> ESTÚDIO VIRAL SHOPEE ➔ SHORTS, TIKTOK & KWAI
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(0, 102, 255, 0.15)", border: "1px solid rgba(0, 102, 255, 0.4)", color: "#60a5fa", padding: "5px 14px", borderRadius: "100px", fontSize: "0.8rem", fontWeight: 800, marginBottom: "8px" }}>
+              <img src="/logo.png" alt="Logo" style={{ width: "20px", height: "20px", borderRadius: "50%", objectFit: "cover", border: "1px solid #0066FF" }} />
+              ESTÚDIO VIRAL ACHADINHOS DO DIA ➔ SHORTS, TIKTOK & KWAI
             </div>
             <h1 style={{ fontSize: "2rem", fontWeight: 900, margin: "0 0 6px 0", letterSpacing: "-0.02em" }}>
               Criador de Vídeos de Alta Conversão
