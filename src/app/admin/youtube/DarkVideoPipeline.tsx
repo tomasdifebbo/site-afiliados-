@@ -111,6 +111,10 @@ export function DarkVideoPipeline() {
   const [scriptText, setScriptText] = useState("");
   const [captionText, setCaptionText] = useState("");
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [pinnedComment, setPinnedComment] = useState("");
+  const [copiedPinnedComment, setCopiedPinnedComment] = useState(false);
+  const [viralTitles, setViralTitles] = useState<string[]>([]);
+  const [copiedTitleIndex, setCopiedTitleIndex] = useState<number | null>(null);
   const [narrationAudioUrl, setNarrationAudioUrl] = useState<string | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState(false);
 
@@ -417,6 +421,8 @@ export function DarkVideoPipeline() {
       if (data.success) {
         setScriptText(data.script || "");
         setCaptionText(data.caption || "");
+        setPinnedComment(data.pinnedComment || "");
+        setViralTitles(Array.isArray(data.viralTitles) ? data.viralTitles : []);
         if (data.audioUrl) {
           setNarrationAudioUrl(data.audioUrl);
         }
@@ -505,11 +511,26 @@ export function DarkVideoPipeline() {
     setTimeout(() => setCopiedCaption(false), 2500);
   };
 
+  const handleCopyPinnedComment = () => {
+    if (!pinnedComment) return;
+    navigator.clipboard.writeText(pinnedComment);
+    setCopiedPinnedComment(true);
+    setTimeout(() => setCopiedPinnedComment(false), 2500);
+  };
+
+  const handleCopyTitle = (title: string, index: number) => {
+    navigator.clipboard.writeText(title);
+    setCopiedTitleIndex(index);
+    setTimeout(() => setCopiedTitleIndex(null), 2500);
+  };
+
   const handleResetWorkflow = () => {
     setSelectedProduct(null);
     setSellerVideoUrl(null);
     setScriptText("");
     setCaptionText("");
+    setPinnedComment("");
+    setViralTitles([]);
     setFinalVideoUrl(null);
     setMaskedLink("");
     setCurrentStep(1);
@@ -1133,94 +1154,188 @@ export function DarkVideoPipeline() {
               A inteligência artificial está escrevendo a narrativa de alta retenção...
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
-              {/* Roteiro da Voz */}
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: 800, color: "#1e293b" }}>
-                    🎙️ Roteiro da Voz Narrada (Google Gemini TTS Oficial):
-                  </label>
-                  {narrationAudioUrl && (
-                    <span style={{ fontSize: "0.75rem", background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: "6px", fontWeight: 700 }}>
-                      ✅ Áudio Gerado
+            <div>
+              {/* 3 Títulos Magnéticos de Alto CTR */}
+              {viralTitles && viralTitles.length > 0 && (
+                <div style={{ marginBottom: "1.5rem", background: "linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%)", border: "1px solid #fed7aa", borderRadius: "14px", padding: "14px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "1.1rem" }}>🔥</span>
+                      <strong style={{ fontSize: "0.9rem", color: "#9a3412" }}>3 Títulos Magnéticos de Alto CTR (Clique para Copiar):</strong>
+                    </div>
+                    <span style={{ fontSize: "0.72rem", color: "#c2410c", background: "#ffedd5", padding: "3px 10px", borderRadius: "999px", fontWeight: 800 }}>
+                      ⚡ Testados para Viralização no Shorts, TikTok e Reels
                     </span>
-                  )}
-                </div>
-                <textarea
-                  value={scriptText}
-                  onChange={(e) => setScriptText(e.target.value)}
-                  rows={8}
-                  style={{
-                    width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1",
-                    fontSize: "0.9rem", lineHeight: 1.6, color: "#0f172a", boxSizing: "border-box",
-                    fontFamily: "inherit", resize: "vertical"
-                  }}
-                />
-                
-                {/* Player de Prévia da Narração Gemini */}
-                {narrationAudioUrl && (
-                  <div style={{ marginTop: "10px", background: "#f1f5f9", padding: "10px 14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-                    <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span>🎧 Ouvir Narração Sintetizada pela API do Gemini:</span>
-                    </div>
-                    <audio src={narrationAudioUrl} controls style={{ width: "100%", height: "36px" }} />
                   </div>
-                )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {viralTitles.map((title, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleCopyTitle(title, idx)}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
+                          background: "#fff", border: copiedTitleIndex === idx ? "2px solid #22c55e" : "1px solid #fed7aa",
+                          borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
+                          transition: "all 0.2s ease", boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ fontSize: "0.75rem", fontWeight: 900, background: copiedTitleIndex === idx ? "#22c55e" : "#ea580c", color: "#fff", width: "22px", height: "22px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {copiedTitleIndex === idx ? "✓" : idx + 1}
+                          </span>
+                          <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#1e293b" }}>{title}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyTitle(title, idx);
+                          }}
+                          style={{
+                            background: copiedTitleIndex === idx ? "#dcfce7" : "#fff7ed",
+                            color: copiedTitleIndex === idx ? "#15803d" : "#ea580c",
+                            border: "none", borderRadius: "6px", padding: "4px 10px", fontSize: "0.75rem",
+                            fontWeight: 800, display: "flex", alignItems: "center", gap: "4px", cursor: "pointer"
+                          }}
+                        >
+                          {copiedTitleIndex === idx ? <Check size={12} /> : <Copy size={12} />}
+                          {copiedTitleIndex === idx ? "Copiado!" : "Copiar"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginTop: "6px" }}>
-                  💡 Você pode editar qualquer palavra diretamente para ajustar o tom da narração.
-                </span>
-              </div>
-
-              {/* Legenda Pronta */}
-              <div>
-                {maskedLink && (
-                  <div style={{ marginBottom: "8px", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "6px 12px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#475569" }}>🔗 Link Mascarado Oficial:</span>
-                      <span style={{ fontSize: "0.78rem", color: "#FF5722", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{maskedLink}</span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
+                {/* Roteiro da Voz */}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 800, color: "#1e293b" }}>
+                      🎙️ Roteiro da Voz Narrada (Google Gemini TTS Oficial):
+                    </label>
+                    {narrationAudioUrl && (
+                      <span style={{ fontSize: "0.75rem", background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: "6px", fontWeight: 700 }}>
+                        ✅ Áudio Gerado
+                      </span>
+                    )}
+                  </div>
+                  <textarea
+                    value={scriptText}
+                    onChange={(e) => setScriptText(e.target.value)}
+                    rows={8}
+                    style={{
+                      width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1",
+                      fontSize: "0.9rem", lineHeight: 1.6, color: "#0f172a", boxSizing: "border-box",
+                      fontFamily: "inherit", resize: "vertical"
+                    }}
+                  />
+                  
+                  {/* Player de Prévia da Narração Gemini */}
+                  {narrationAudioUrl && (
+                    <div style={{ marginTop: "10px", background: "#f1f5f9", padding: "10px 14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>🎧 Ouvir Narração Sintetizada pela API do Gemini:</span>
+                      </div>
+                      <audio src={narrationAudioUrl} controls style={{ width: "100%", height: "36px" }} />
                     </div>
+                  )}
+
+                  <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginTop: "6px" }}>
+                    💡 Você pode editar qualquer palavra diretamente para ajustar o tom da narração.
+                  </span>
+                </div>
+
+                {/* Legenda Pronta */}
+                <div>
+                  {maskedLink && (
+                    <div style={{ marginBottom: "8px", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "6px 12px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#475569" }}>🔗 Link Mascarado Oficial:</span>
+                        <span style={{ fontSize: "0.78rem", color: "#FF5722", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{maskedLink}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(maskedLink);
+                          setCopiedMaskedLink(true);
+                          setTimeout(() => setCopiedMaskedLink(false), 2000);
+                        }}
+                        style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "2px 8px", color: "#0f172a", cursor: "pointer", fontSize: "0.72rem", fontWeight: 800, whiteSpace: "nowrap" }}
+                      >
+                        {copiedMaskedLink ? "✅ Copiado!" : "📋 Copiar"}
+                      </button>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 800, color: "#1e293b" }}>
+                      📱 Legenda Pronta (TikTok, Kwai, Shorts & Reels):
+                    </label>
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(maskedLink);
-                        setCopiedMaskedLink(true);
-                        setTimeout(() => setCopiedMaskedLink(false), 2000);
+                      onClick={handleCopyCaption}
+                      style={{
+                        background: copiedCaption ? "#dcfce7" : "#f1f5f9",
+                        border: "none", color: copiedCaption ? "#16a34a" : "#475569",
+                        padding: "4px 10px", borderRadius: "6px", fontSize: "0.75rem",
+                        fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px"
                       }}
-                      style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "2px 8px", color: "#0f172a", cursor: "pointer", fontSize: "0.72rem", fontWeight: 800, whiteSpace: "nowrap" }}
                     >
-                      {copiedMaskedLink ? "✅ Copiado!" : "📋 Copiar"}
+                      {copiedCaption ? <Check size={12} /> : <Copy size={12} />}
+                      {copiedCaption ? "Copiado!" : "Copiar"}
                     </button>
                   </div>
-                )}
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: 800, color: "#1e293b" }}>
-                    📱 Legenda Pronta (TikTok, Kwai, Shorts & Reels):
-                  </label>
-                  <button
-                    onClick={handleCopyCaption}
+                  <textarea
+                    value={captionText}
+                    onChange={(e) => setCaptionText(e.target.value)}
+                    rows={8}
                     style={{
-                      background: copiedCaption ? "#dcfce7" : "#f1f5f9",
-                      border: "none", color: copiedCaption ? "#16a34a" : "#475569",
-                      padding: "4px 10px", borderRadius: "6px", fontSize: "0.75rem",
-                      fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px"
+                      width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1",
+                      fontSize: "0.82rem", lineHeight: 1.5, color: "#334155", boxSizing: "border-box",
+                      fontFamily: "inherit", resize: "vertical", background: "#f8fafc"
                     }}
-                  >
-                    {copiedCaption ? <Check size={12} /> : <Copy size={12} />}
-                    {copiedCaption ? "Copiado!" : "Copiar"}
-                  </button>
+                  />
                 </div>
-                <textarea
-                  value={captionText}
-                  onChange={(e) => setCaptionText(e.target.value)}
-                  rows={8}
-                  style={{
-                    width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #cbd5e1",
-                    fontSize: "0.82rem", lineHeight: 1.5, color: "#334155", boxSizing: "border-box",
-                    fontFamily: "inherit", resize: "vertical", background: "#f8fafc"
-                  }}
-                />
               </div>
+
+              {/* Comentário Fixado de Alta Conversão */}
+              {pinnedComment && (
+                <div style={{ marginTop: "1.5rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "14px", padding: "14px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "1.1rem" }}>📌</span>
+                      <strong style={{ fontSize: "0.88rem", color: "#166534" }}>Comentário Fixado Oficial (Gera 85% das Vendas Imediatas):</strong>
+                      <span style={{ fontSize: "0.72rem", background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: "999px", fontWeight: 700 }}>
+                        Cole e Fixe no Topo do Vídeo
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleCopyPinnedComment}
+                      style={{
+                        background: copiedPinnedComment ? "#15803d" : "#16a34a",
+                        color: "#fff", border: "none", borderRadius: "8px", padding: "6px 14px",
+                        fontSize: "0.75rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "5px",
+                        cursor: "pointer", boxShadow: "0 2px 6px rgba(22,163,74,0.3)"
+                      }}
+                    >
+                      {copiedPinnedComment ? <Check size={13} /> : <Copy size={13} />}
+                      {copiedPinnedComment ? "Copiado!" : "Copiar Comentário Fixado"}
+                    </button>
+                  </div>
+                  <textarea
+                    value={pinnedComment}
+                    onChange={(e) => setPinnedComment(e.target.value)}
+                    rows={4}
+                    style={{
+                      width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #86efac",
+                      fontSize: "0.85rem", lineHeight: 1.5, color: "#14532d", background: "#ffffff",
+                      fontFamily: "inherit", resize: "vertical", boxSizing: "border-box"
+                    }}
+                  />
+                  <div style={{ fontSize: "0.75rem", color: "#15803d", marginTop: "6px" }}>
+                    ⚡ <strong>Dica de Ouro de Monetização:</strong> No TikTok, Shorts e Kwai, responda o primeiro comentário ou fixe este no topo com o seu link mascarado!
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1325,6 +1440,59 @@ export function DarkVideoPipeline() {
                 </button>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {/* Kit de Publicação Imediata */}
+                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "14px", padding: "14px", marginBottom: "6px" }}>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 800, color: "#166534", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span>🚀 Kit de Publicação Imediata</span>
+                      <span style={{ fontSize: "0.7rem", background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: "999px", fontWeight: 800 }}>Alta Conversão</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {pinnedComment && (
+                        <button
+                          type="button"
+                          onClick={handleCopyPinnedComment}
+                          style={{
+                            padding: "9px 12px", borderRadius: "8px", border: "1px solid #86efac",
+                            background: copiedPinnedComment ? "#dcfce7" : "#fff", color: "#15803d",
+                            fontWeight: 800, fontSize: "0.8rem", cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px"
+                          }}
+                        >
+                          <span>📌 Copiar Comentário Fixado (85% das Vendas)</span>
+                          {copiedPinnedComment ? <Check size={14} /> : <Copy size={14} />}
+                        </button>
+                      )}
+                      {viralTitles && viralTitles.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyTitle(viralTitles[0], 0)}
+                          style={{
+                            padding: "9px 12px", borderRadius: "8px", border: "1px solid #fed7aa",
+                            background: copiedTitleIndex === 0 ? "#ffedd5" : "#fff", color: "#ea580c",
+                            fontWeight: 800, fontSize: "0.8rem", cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px"
+                          }}
+                        >
+                          <span>🔥 Copiar Título Magnético #1</span>
+                          {copiedTitleIndex === 0 ? <Check size={14} /> : <Copy size={14} />}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCopyCaption}
+                        style={{
+                          padding: "9px 12px", borderRadius: "8px", border: "1px solid #cbd5e1",
+                          background: copiedCaption ? "#dcfce7" : "#fff", color: "#334155",
+                          fontWeight: 800, fontSize: "0.8rem", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px"
+                        }}
+                      >
+                        <span>📱 Copiar Legenda Completa c/ Hashtags</span>
+                        {copiedCaption ? <Check size={14} /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
                   <a
                     href={finalVideoUrl}
                     download="video-shopee-shorts.mp4"
@@ -1360,18 +1528,6 @@ export function DarkVideoPipeline() {
                   >
                     <Download size={18} /> Baixar para Kwai (MP4)
                   </a>
-
-                  <button
-                    onClick={handleCopyCaption}
-                    style={{
-                      padding: "12px", borderRadius: "12px", border: "1px solid #cbd5e1",
-                      background: "#fff", color: "#334155", fontWeight: 800, fontSize: "0.85rem",
-                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px"
-                    }}
-                  >
-                    {copiedCaption ? <Check size={16} color="#16a34a" /> : <Copy size={16} />}
-                    {copiedCaption ? "Legenda Copiada!" : "Copiar Legenda Pronta"}
-                  </button>
 
                   <button
                     onClick={handleResetWorkflow}

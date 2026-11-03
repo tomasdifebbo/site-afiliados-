@@ -515,26 +515,44 @@ export function renderShortsOverlay(product) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
 
-  // Badge Superior Shopee
-  const badgeY = 130;
-  const badgeH = 68;
-  const badgeW = 680;
+  // Badge Superior Shopee com Logo Oficial
+  const badgeY = 120;
+  const badgeH = 74;
+  const badgeW = 760;
   const badgeX = (W - badgeW) / 2;
 
   // Sombra suave do badge
-  ctx.fillStyle = 'rgba(255, 87, 34, 0.25)';
-  roundRect(ctx, badgeX - 4, badgeY - 2, badgeW + 8, badgeH + 4, 34);
+  ctx.fillStyle = 'rgba(255, 87, 34, 0.3)';
+  roundRect(ctx, badgeX - 4, badgeY - 2, badgeW + 8, badgeH + 4, 37);
   ctx.fill();
 
   // Fundo gradiente do badge
   ctx.fillStyle = ORANGE;
-  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 34);
+  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 37);
   ctx.fill();
 
-  ctx.font = '900 28px sans-serif';
-  ctx.fillStyle = WHITE;
-  ctx.textAlign = 'center';
-  ctx.fillText('ACHADINHO VIRAL DA SHOPEE', W / 2, badgeY + 44);
+  if (product._logoImg) {
+    const logoSize = 54;
+    const logoX = badgeX + 16;
+    const logoY = badgeY + (badgeH - logoSize) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(product._logoImg, logoX, logoY, logoSize, logoSize);
+    ctx.restore();
+
+    ctx.font = '900 27px sans-serif';
+    ctx.fillStyle = WHITE;
+    ctx.textAlign = 'center';
+    ctx.fillText('ACHADINHOS DO DIA • OFERTA SHOPEE', W / 2 + 25, badgeY + 47);
+  } else {
+    ctx.font = '900 28px sans-serif';
+    ctx.fillStyle = WHITE;
+    ctx.textAlign = 'center';
+    ctx.fillText('ACHADINHO VIRAL DA SHOPEE', W / 2, badgeY + 46);
+  }
   ctx.textAlign = 'left';
 
   // Tag "Oferta Shopee" sobre a área do vídeo
@@ -596,12 +614,21 @@ export function renderShortsOverlay(product) {
     ctx.textAlign = 'left';
   }
 
-  // CTA
+  // Micro-badge de Frete Grátis e Cupons da Shopee (Gatilho de Conversão)
+  const freteY = curY + 65 + 24;
+  ctx.fillStyle = '#059669';
+  roundRect(ctx, infoX, freteY, 360, 44, 12);
+  ctx.fill();
+  ctx.font = '800 20px sans-serif';
+  ctx.fillStyle = WHITE;
+  ctx.fillText('🚚 FRETE GRÁTIS + CUPOM DISPONÍVEL', infoX + 16, freteY + 29);
+
+  // CTA Duplo de Alta Monetização (Comentário + Bio)
   const ctaY = 1680;
   const ctaW = 920;
   const ctaH = 96;
 
-  ctx.fillStyle = 'rgba(255, 87, 34, 0.35)';
+  ctx.fillStyle = 'rgba(255, 87, 34, 0.45)';
   roundRect(ctx, infoX - 4, ctaY - 4, ctaW + 8, ctaH + 8, 48);
   ctx.fill();
 
@@ -609,13 +636,14 @@ export function renderShortsOverlay(product) {
   roundRect(ctx, infoX, ctaY, ctaW, ctaH, 48);
   ctx.fill();
 
-  ctx.font = '900 34px sans-serif';
+  ctx.font = '900 32px sans-serif';
   ctx.fillStyle = '#0f172a';
   ctx.textAlign = 'center';
-  ctx.fillText('LINK NO 1º COMENTÁRIO E NA BIO', W / 2, ctaY + 60);
+  ctx.fillText('🔥 COMENTE "QUERO" • LINK NA BIO & FIXADO', W / 2, ctaY + 60);
   ctx.textAlign = 'left';
 
   return canvas;
+}
 }
 
 // ── Pipeline Principal de Geração de Shorts ────────────────────────────────────
@@ -642,6 +670,16 @@ export async function generateShorts({
       product._img = await fetchImageWithRetry(product.imageUrl);
     } catch (err) {
       console.warn('Erro ao baixar foto:', err.message);
+    }
+  }
+
+  // Carrega logo oficial do canal para o overlay se disponível
+  const logoPath = join(ROOT, 'public', 'logo.png');
+  if (existsSync(logoPath)) {
+    try {
+      product._logoImg = await loadImage(logoPath);
+    } catch (err) {
+      console.warn('Erro ao carregar logo oficial:', err.message);
     }
   }
 
