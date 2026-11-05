@@ -257,14 +257,25 @@ export default function SearchContent() {
                     </div>
 
                     {/* Preço e Botão */}
-                    <div className="product-card-bottom" style={{ marginTop: "10px" }}>
+                    <div className="product-card-bottom" style={{ marginTop: "auto" }}>
                       <div className="product-card-price-block">
-                        {item.originalPrice && item.originalPrice > item.price && (
-                          <span className="product-card-old-price">
-                            R$ {formatBRL(item.originalPrice)}
-                          </span>
-                        )}
-                        <div style={{ display: "flex", alignItems: "baseline" }}>
+                        <div className="product-card-price-header">
+                          {item.originalPrice && item.originalPrice > item.price ? (
+                            <span className="product-card-old-price">
+                              De R$ {formatBRL(item.originalPrice)}
+                            </span>
+                          ) : (
+                            <span className="product-card-price-label">Melhor Preço</span>
+                          )}
+
+                          {item.discountRate && item.discountRate > 0 ? (
+                            <span className="product-card-discount-pill">
+                              -{item.discountRate}% OFF
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="product-card-price">
                           <span className="product-card-currency">R$</span>
                           <span className="product-card-price-value" style={{ fontSize: "1.25rem", fontWeight: 900, color: "#FF5722" }}>
                             {formatBRL(item.price)}
@@ -284,15 +295,17 @@ export default function SearchContent() {
                           gap: "6px",
                           background: "linear-gradient(135deg, #FF5722 0%, #FF7A00 100%)",
                           color: "#fff",
-                          padding: "8px 12px",
-                          borderRadius: "8px",
+                          padding: "10px 14px",
+                          borderRadius: "10px",
                           fontWeight: 800,
-                          fontSize: "0.82rem",
+                          fontSize: "0.85rem",
                           textDecoration: "none",
                           boxShadow: "0 2px 8px rgba(255,87,34,0.3)",
+                          width: "100%",
+                          boxSizing: "border-box",
                         }}
                       >
-                        Ver na Shopee <ExternalLink size={13} />
+                        Ver na Shopee <ExternalLink size={14} />
                       </a>
                     </div>
                   </div>

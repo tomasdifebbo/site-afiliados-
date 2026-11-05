@@ -178,8 +178,11 @@ export default function InfiniteProductGrid({
   }, [hasMore, loading, loadMore]);
 
   const formatSales = (count: number) => {
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
+    }
     if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}k`.replace(".0", "k");
+      return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k`;
     }
     return `${count}`;
   };
@@ -367,13 +370,22 @@ export default function InfiniteProductGrid({
               ) : (
               <div className="product-card-bottom">
                 <div className="product-card-price-block">
-                  {product.discountRate && product.discountRate > 0 && product.price ? (
-                    <span className="product-card-old-price">
-                      R$ {formatBRL(product.price / (1 - product.discountRate / 100))}
-                    </span>
-                  ) : (
-                    <span className="product-card-price-label">Melhor Preço</span>
-                  )}
+                  <div className="product-card-price-header">
+                    {product.discountRate && product.discountRate > 0 && product.price ? (
+                      <span className="product-card-old-price">
+                        De R$ {formatBRL(product.price / (1 - product.discountRate / 100))}
+                      </span>
+                    ) : (
+                      <span className="product-card-price-label">Melhor Preço</span>
+                    )}
+
+                    {product.discountRate && product.discountRate > 0 ? (
+                      <span className="product-card-discount-pill">
+                        -{product.discountRate}% OFF
+                      </span>
+                    ) : null}
+                  </div>
+
                   <div className="product-card-price">
                     {product.price && product.price > 0 ? (
                       <>

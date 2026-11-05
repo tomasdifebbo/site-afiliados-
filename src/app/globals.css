@@ -219,16 +219,14 @@ a {
 .product-card-bottom {
   margin-top: auto;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.65rem;
   padding-top: 0.75rem;
   border-top: 1px solid #f1f5f9;
 }
 
 @media (min-width: 640px) {
   .product-card-bottom {
-    align-items: center;
     gap: 0.75rem;
     padding-top: 0.85rem;
   }
@@ -238,25 +236,36 @@ a {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  flex: 1;
+  width: 100%;
+}
+
+.product-card-price-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+  min-height: 1.15rem;
 }
 
 .product-card-price-label {
-  font-size: 0.62rem;
+  font-size: 0.65rem;
   color: #64748b;
-  font-weight: 600;
+  font-weight: 700;
   display: block;
   line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 @media (min-width: 640px) {
   .product-card-price-label {
-    font-size: 0.68rem;
+    font-size: 0.7rem;
   }
 }
 
 .product-card-old-price {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: #94a3b8;
   text-decoration: line-through;
   font-weight: 600;
@@ -266,18 +275,29 @@ a {
 
 @media (min-width: 640px) {
   .product-card-old-price {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
   }
 }
 
+.product-card-discount-pill {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #15803d;
+  background-color: #dcfce7;
+  padding: 1px 6px;
+  border-radius: 6px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .product-card-price {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 900;
   color: hsl(var(--primary));
-  line-height: 1.1;
+  line-height: 1.15;
   display: inline-flex;
   align-items: baseline;
-  gap: 2px;
+  gap: 3px;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
@@ -285,19 +305,19 @@ a {
 @media (min-width: 640px) {
   .product-card-price {
     font-size: 1.35rem;
-    gap: 2px;
+    gap: 3px;
   }
 }
 
 .product-card-currency {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: hsl(var(--primary));
 }
 
 @media (min-width: 640px) {
   .product-card-currency {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
   }
 }
 
@@ -305,24 +325,31 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
+  gap: 6px;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8rem;
   font-weight: 800;
   border-radius: 10px;
   white-space: nowrap;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(255, 87, 34, 0.2);
+  box-shadow: 0 2px 8px rgba(255, 87, 34, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
   .product-card-btn {
     gap: 6px;
-    padding: 0.6rem 1rem;
-    font-size: 0.82rem;
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(255, 87, 34, 0.22);
+    box-shadow: 0 4px 12px rgba(255, 87, 34, 0.25);
   }
+}
+
+.product-card-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 87, 34, 0.35);
 }
 
 .product-card-badge-left {
