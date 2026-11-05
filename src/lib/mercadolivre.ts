@@ -69,6 +69,30 @@ async function getAccessToken(): Promise<string> {
   }
 
   cachedToken = { value: data.access_token, expiresAt: Date.now() + (data.expires_in || 21600) * 1000 };
+
+  // Se o Mercado Livre devolver um refresh_token rotacionado, atualiza
+  if (data.refresh_token && data.refresh_token !== refreshToken) {
+    process.env.ML_REFRESH_TOKEN = data.refresh_token;
+    import("fs").then((fs) => {
+      import("path").then((path) => {
+        try {
+          const update = (fileName: string) => {
+            const p = path.resolve(process.cwd(), fileName);
+            if (fs.existsSync(p)) {
+              let c = fs.readFileSync(p, "utf-8");
+              if (/^ML_REFRESH_TOKEN=.*$/m.test(c)) {
+                c = c.replace(/^ML_REFRESH_TOKEN=.*$/m, `ML_REFRESH_TOKEN=${data.refresh_token}`);
+                fs.writeFileSync(p, c, "utf-8");
+              }
+            }
+          };
+          update(".env");
+          update(".env.local");
+        } catch {}
+      });
+    });
+  }
+
   return cachedToken.value;
 }
 

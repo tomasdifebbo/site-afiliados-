@@ -20,7 +20,11 @@ export async function GET() {
 
   return NextResponse.json({
     configured: isMercadoLivreConfigured(),
+    hasRefreshToken: Boolean(process.env.ML_REFRESH_TOKEN),
     affiliateTag: Boolean(process.env.ML_AFFILIATE_TAG || process.env.ML_AFFILIATE_TOOL),
+    tag: process.env.ML_AFFILIATE_TAG || "",
+    tool: process.env.ML_AFFILIATE_TOOL || "",
+    clientId: process.env.ML_CLIENT_ID || "",
     minScore: MIN_MATCH_SCORE,
     total,
     checked,

@@ -4,8 +4,12 @@ import { verifySessionToken, COOKIE_NAME } from "@/lib/auth";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Permitir acesso às rotas de login pública e api de login
-  if (pathname === "/login" || pathname === "/api/admin/login") {
+  // Permitir acesso às rotas de login pública, api de login e callback oauth do Mercado Livre
+  if (
+    pathname === "/login" ||
+    pathname === "/api/admin/login" ||
+    pathname === "/api/admin/mercadolivre/callback"
+  ) {
     return NextResponse.next();
   }
 
