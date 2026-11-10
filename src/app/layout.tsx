@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
-import { ShopeeSearchBar } from "@/components/ShopeeSearchBar";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -62,11 +61,6 @@ export default function RootLayout({
               </div>
             </a>
 
-            {/* Campo de Busca Rápida na Shopee */}
-            <div style={{ flex: 1, maxWidth: "520px", margin: "0 1.5rem" }} className="header-search-desktop">
-              <ShopeeSearchBar />
-            </div>
-            
             <nav className="header-nav" style={{ display: 'flex', gap: '2rem', flexShrink: 0 }}>
               <a href="/" style={{ fontWeight: 600 }}>Home</a>
               <a href="/categorias" style={{ fontWeight: 600 }}>Categorias</a>
