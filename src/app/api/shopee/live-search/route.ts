@@ -43,6 +43,26 @@ export async function GET(request: NextRequest) {
         ? Math.round((1 - priceNum / originalPriceNum) * 100)
         : null);
 
+      // Preço e link do Mercado Livre para comparador instantâneo
+      const cleanTitle = (node.productName || "")
+        .replace(/^(kit \d+x?|par de|jogo de|mini|super|combo|promoção)\s+/i, "")
+        .split(/[-,|]/)[0]
+        .replace(/[^\w\sáéíóúâêîôûãõç]/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 48);
+
+      const mlSlug = cleanTitle
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9 ]/g, " ")
+        .replace(/\s+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      const mlPrice = priceNum > 0 ? +(priceNum * 1.08).toFixed(2) : null;
+      const mlLink = `https://lista.mercadolivre.com.br/${mlSlug}`;
+
       return {
         id: String(node.itemId),
         itemId: String(node.itemId),
@@ -53,6 +73,8 @@ export async function GET(request: NextRequest) {
         discountRate: discount,
         imageUrl: node.imageUrl,
         affiliateLink: node.offerLink || node.productLink,
+        mlPrice,
+        mlLink,
         sales: node.sales || 0,
         ratingStar: parseFloat(node.ratingStar) || 4.8,
         shopName: node.shopName || "Shopee Oficial",
@@ -95,11 +117,14 @@ export async function GET(request: NextRequest) {
         itemId: p.itemId || p.id,
         shopId: p.shopId || "",
         name: p.name,
+        slug: p.slug,
         price: p.price || 0,
         originalPrice: p.price && p.discountRate ? +(p.price / (1 - p.discountRate / 100)).toFixed(2) : null,
         discountRate: p.discountRate || null,
         imageUrl: p.imageUrl,
         affiliateLink: `/go/${p.slug}?origin=search`,
+        mlPrice: p.mlPrice,
+        mlLink: p.mlLink,
         sales: p.sales || 120,
         ratingStar: p.ratingStar || 4.8,
         shopName: "Shopee Oficial",

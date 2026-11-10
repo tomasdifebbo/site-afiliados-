@@ -4,16 +4,20 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { ShoppingBag, Star, Loader2, ExternalLink, ChevronDown, CheckCircle2 } from "lucide-react";
 import { ShopeeSearchBar } from "@/components/ShopeeSearchBar";
+import PriceCompare from "@/components/PriceCompare";
 
 interface LiveShopeeProduct {
   id: string;
   itemId: string;
   name: string;
+  slug?: string;
   price: number;
   originalPrice?: number | null;
   discountRate?: number | null;
   imageUrl: string;
   affiliateLink: string;
+  mlPrice?: number | null;
+  mlLink?: string | null;
   sales: number;
   ratingStar: number;
   shopName: string;
@@ -256,7 +260,17 @@ export default function SearchContent() {
                       </h3>
                     </div>
 
-                    {/* Preço e Botão */}
+                    {/* Preço e Comparador / Botão */}
+                    {item.mlPrice && item.mlLink && item.price > 0 ? (
+                      <div style={{ marginTop: "auto", paddingTop: "0.5rem" }}>
+                        <PriceCompare
+                          slug={item.slug || item.itemId}
+                          origin="search"
+                          shopeePrice={item.price}
+                          mlPrice={item.mlPrice}
+                        />
+                      </div>
+                    ) : (
                     <div className="product-card-bottom" style={{ marginTop: "auto" }}>
                       <div className="product-card-price-block">
                         <div className="product-card-price-header">
@@ -308,6 +322,7 @@ export default function SearchContent() {
                         Ver na Shopee <ExternalLink size={14} />
                       </a>
                     </div>
+                    )}
                   </div>
                 </div>
               );
