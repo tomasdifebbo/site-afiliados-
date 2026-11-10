@@ -52,21 +52,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${origin}/admin/produtos?ml_error=${encodeURIComponent(errMsg)}`);
     }
 
-    // Grava o ML_REFRESH_TOKEN em process.env e nos arquivos .env e .env.local
+    // Grava o ML_REFRESH_TOKEN em process.env e tenta salvar nos arquivos locais apenas se permitido
     const refreshToken = tokenData.refresh_token;
     process.env.ML_REFRESH_TOKEN = refreshToken;
 
     const updateEnv = (fileName: string) => {
-      const filePath = path.resolve(process.cwd(), fileName);
-      if (fs.existsSync(filePath)) {
-        let content = fs.readFileSync(filePath, "utf-8");
-        const regex = /^ML_REFRESH_TOKEN=.*$/m;
-        if (regex.test(content)) {
-          content = content.replace(regex, `ML_REFRESH_TOKEN=${refreshToken}`);
-        } else {
-          content += `\nML_REFRESH_TOKEN=${refreshToken}\n`;
+      try {
+        const filePath = path.resolve(process.cwd(), fileName);
+        if (fs.existsSync(filePath)) {
+          let content = fs.readFileSync(filePath, "utf-8");
+          const regex = /^ML_REFRESH_TOKEN=.*$/m;
+          if (regex.test(content)) {
+            content = content.replace(regex, `ML_REFRESH_TOKEN=${refreshToken}`);
+          } else {
+            content += `\nML_REFRESH_TOKEN=${refreshToken}\n`;
+          }
+          fs.writeFileSync(filePath, content, "utf-8");
         }
-        fs.writeFileSync(filePath, content, "utf-8");
+      } catch (fileErr) {
+        // Em ambientes serverless como a Vercel, o sistema de arquivos é somente leitura (/var/task)
+        console.warn(`[ML Callback] Não foi possível salvar em ${fileName} (ambiente read-only):`, fileErr);
       }
     };
 
@@ -74,7 +79,7 @@ export async function GET(req: NextRequest) {
     updateEnv(".env.local");
 
     return NextResponse.redirect(
-      `${origin}/admin/produtos?ml_status=connected&user_id=${tokenData.user_id || ""}`
+      `${origin}/admin/produtos?ml_status=connected&user_id=${tokenData.user_id || ""}&refresh_token=${encodeURIComponent(refreshToken)}`
     );
   } catch (e: any) {
     return NextResponse.redirect(

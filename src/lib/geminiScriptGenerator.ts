@@ -37,14 +37,14 @@ function fallbackScript(product: ScriptProductInput): GeneratedScriptResult {
     .slice(0, 45);
 
   const hooks = [
-    `Para tudo! Se você quer economizar de verdade na Shopee, você precisa ver esse achadinho antes que o estoque acabe:`,
-    `Eu não acreditava que esse achadinho funcionava tão bem até testar na prática na minha rotina:`,
-    `Parece um produto caro de loja de shopping, mas na Shopee custa menos que uma pizza:`,
-    `Esse é oficialmente o achadinho secreto mais útil que eu já encontrei na Shopee para ${cat}:`,
+    `Tudo isso por ${priceFormatted}! Se você quer o kit completo do ${shortName}, olha isso:`,
+    `Olha o que acabou de chegar na Shopee: ${shortName} com o combo completo por apenas ${priceFormatted}!`,
+    `Para de gastar à toa comprando separado: esse kit completo do ${shortName} tá saindo por só ${priceFormatted}:`,
+    `Achado surreal na Shopee: ${shortName} completo por inacreditáveis ${priceFormatted}!`,
   ];
   const hook = hooks[Math.floor(Math.random() * hooks.length)];
 
-  const script = `${hook} é o ${shortName}. Ele resolve um problema enorme do dia a dia com praticidade inacreditável. No anúncio oficial da Shopee, ele conta com mais de 2 mil avaliações 5 estrelas e o preço confirmado com desconto é de apenas ${priceFormatted}. Quer garantir o seu antes que o cupom expire? Comenta "EU QUERO" que eu te envio o link com desconto, ou pega direto no primeiro comentário fixado e na bio!`;
+  const script = `${hook} Ele vem completinho, pronto pro uso e resolve sua vida na hora. No anúncio oficial da Shopee são milhares de avaliações 5 estrelas. Quer garantir antes que acabe o estoque? Comenta "QUERO" que eu te envio o link com desconto no direct, ou clica no primeiro comentário fixado e na bio!`;
 
   const targetLink = product.maskedUrl || "https://achadinhosdodia.com.br";
 
@@ -120,13 +120,13 @@ Sua missão é criar o roteiro, títulos de alto clique (CTR), comentário fixad
 ${product.maskedUrl ? `- Link Oficial Mascarado do Produto: ${product.maskedUrl}` : ""}
 ${product.description ? `- Detalhes do item: ${product.description.slice(0, 300)}` : ""}
 
-REGRAS DE OURO PARA MONETIZAÇÃO RÁPIDA:
-1. ROTEIRO ("script") — RETENÇÃO MÁXIMA & ENGAGEMENT LOOP:
-   - Duração falada: Entre 22 e 32 segundos (em torno de 60 a 85 palavras). Sem enrolação.
-   - 0-3 segundos (GANCHO HIPNÓTICO / PATTERN INTERRUPT): Uma frase chocante que impede a pessoa de rolar o feed (Ex: "Para tudo que você tá fazendo agora!", "Eu não acreditava até ver com meus próprios olhos...", "Esse é o segredo que ninguém te conta sobre...").
-   - 3-15 segundos (O DESEJO / BENEFÍCIO REAL): Mostre o impacto prático e a facilidade do produto no dia a dia.
-   - 15-22 segundos (PROVA SOCIAL E ANCORAGEM DE PREÇO): Destaque as milhares de avaliações 5 estrelas e o preço irresistível de ${priceFormatted}.
-   - 22-30 segundos (CTA DUPLO DE ALTA CONVERSÃO): O segredo do algoritmo é fazer as pessoas comentarem. Fale com firmeza: "Comente 'QUERO' que eu te mando o link com desconto, ou acesse direto pelo link oficial fixado no primeiro comentário e na bio!".
+REGRAS DE OURO PARA MONETIZAÇÃO RÁPIDA (MÁXIMA RETENÇÃO EM SHORTS):
+1. ROTEIRO ("script") — RÁPIDO, DIRETO E HIPNÓTICO (MÁXIMO 20 A 25 SEGUNDOS):
+   - Duração falada: Máximo de 20 a 25 segundos (entre 45 e 60 palavras no máximo). Vídeos longos de 40s perdem mais de 75% da audiência.
+   - 0-2 segundos (GANCHO VISUAL E DIRETO NA OFERTA): PROIBIDO iniciar com perguntas clichês como "Cansado de...?", "Você sabia que...?" ou "Se você sofre com...". COMECE DIRETAMENTE na oferta irresistível nos primeiros 2 segundos! (Exemplos: "Tudo isso por apenas ${priceFormatted}: ${name} completo!", "Olha esse kit absurdo na Shopee por só ${priceFormatted}!", "Celular novo de 256GB com fone e relógio de brinde por ${priceFormatted}!").
+   - 3-12 segundos (OS 3 MAIORES BENEFÍCIOS DO COMBO): Apresente em rajada rápida o que vem no kit e a vantagem prática, sem enrolar.
+   - 13-18 segundos (ANCONRAGEM DE PREÇO & PROVA SOCIAL): "Avaliação máxima na Shopee e tá saindo por só ${priceFormatted} hoje."
+   - 18-24 segundos (CTA RÁPIDO DE COMENTÁRIO): "Quer o link? Comenta 'QUERO' que eu te mando no direct ou clica no link da bio e no primeiro comentário fixado!"
    - O texto será lido por uma voz neural. NÃO use emojis, nem tags tipo [música] ou [vídeo], apenas o texto corrido natural em português do Brasil.
 
 2. COMENTÁRIO FIXADO ("pinnedComment"):

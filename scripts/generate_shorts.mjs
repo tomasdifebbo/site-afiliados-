@@ -644,7 +644,6 @@ export function renderShortsOverlay(product) {
 
   return canvas;
 }
-}
 
 // ── Pipeline Principal de Geração de Shorts ────────────────────────────────────
 

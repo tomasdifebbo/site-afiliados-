@@ -8,26 +8,30 @@ export async function POST(req: NextRequest) {
     const { clientId, clientSecret, refreshToken, affiliateTag, affiliateTool } = body;
 
     const updateEnvFile = (filePath: string) => {
-      if (!fs.existsSync(filePath)) return;
-      let content = fs.readFileSync(filePath, "utf-8");
+      try {
+        if (!fs.existsSync(filePath)) return;
+        let content = fs.readFileSync(filePath, "utf-8");
 
-      const setKey = (key: string, val?: string) => {
-        if (val === undefined) return;
-        const regex = new RegExp(`^${key}=.*$`, "m");
-        if (regex.test(content)) {
-          content = content.replace(regex, `${key}=${val}`);
-        } else {
-          content += `\n${key}=${val}`;
-        }
-      };
+        const setKey = (key: string, val?: string) => {
+          if (val === undefined) return;
+          const regex = new RegExp(`^${key}=.*$`, "m");
+          if (regex.test(content)) {
+            content = content.replace(regex, `${key}=${val}`);
+          } else {
+            content += `\n${key}=${val}`;
+          }
+        };
 
-      if (clientId !== undefined) setKey("ML_CLIENT_ID", clientId);
-      if (clientSecret !== undefined) setKey("ML_CLIENT_SECRET", clientSecret);
-      if (refreshToken !== undefined) setKey("ML_REFRESH_TOKEN", refreshToken);
-      if (affiliateTag !== undefined) setKey("ML_AFFILIATE_TAG", affiliateTag);
-      if (affiliateTool !== undefined) setKey("ML_AFFILIATE_TOOL", affiliateTool);
+        if (clientId !== undefined) setKey("ML_CLIENT_ID", clientId);
+        if (clientSecret !== undefined) setKey("ML_CLIENT_SECRET", clientSecret);
+        if (refreshToken !== undefined) setKey("ML_REFRESH_TOKEN", refreshToken);
+        if (affiliateTag !== undefined) setKey("ML_AFFILIATE_TAG", affiliateTag);
+        if (affiliateTool !== undefined) setKey("ML_AFFILIATE_TOOL", affiliateTool);
 
-      fs.writeFileSync(filePath, content, "utf-8");
+        fs.writeFileSync(filePath, content, "utf-8");
+      } catch (err) {
+        console.warn(`[ML SaveConfig] Ignorando escrita em disco em ambiente read-only:`, err);
+      }
     };
 
     if (clientId) process.env.ML_CLIENT_ID = clientId;
