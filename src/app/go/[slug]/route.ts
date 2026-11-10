@@ -71,7 +71,12 @@ export async function GET(
   }
 
   if (!product) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const cleanKeyword = encodeURIComponent(
+      slug.replace(/^(kit \d+x?|par de|jogo de|mini|super)\s+/i, "").replace(/[-_]+/g, " ").trim()
+    );
+    return NextResponse.redirect(
+      `https://shopee.com.br/search?keyword=${cleanKeyword}&mmp_pid=${AFFILIATE_ID}&utm_source=${AFFILIATE_ID}&utm_medium=affiliates`
+    );
   }
 
   // 2. Track the click asynchronously (don't block the redirect)

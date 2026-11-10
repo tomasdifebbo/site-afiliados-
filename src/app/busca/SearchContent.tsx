@@ -268,6 +268,8 @@ export default function SearchContent() {
                           origin="search"
                           shopeePrice={item.price}
                           mlPrice={item.mlPrice}
+                          shopeeDirectUrl={item.affiliateLink || undefined}
+                          mlDirectUrl={item.mlLink || undefined}
                         />
                       </div>
                     ) : (

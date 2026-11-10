@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchProductOffers, ShopeeApiError } from "@/lib/shopee";
 import { prisma } from "@/lib/prisma";
+import { buildMercadoLivreAffiliateUrl } from "@/lib/mercadolivre";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest) {
         .replace(/^-+|-+$/g, "");
 
       const mlPrice = priceNum > 0 ? +(priceNum * 1.08).toFixed(2) : null;
-      const mlLink = `https://lista.mercadolivre.com.br/${mlSlug}`;
+      const rawMlLink = `https://lista.mercadolivre.com.br/${mlSlug}`;
+      const mlLink = buildMercadoLivreAffiliateUrl(rawMlLink);
 
       return {
         id: String(node.itemId),

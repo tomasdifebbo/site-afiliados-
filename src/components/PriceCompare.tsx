@@ -6,18 +6,31 @@ interface PriceCompareProps {
   shopeePrice: number;
   mlPrice: number;
   size?: "card" | "large";
+  shopeeDirectUrl?: string;
+  mlDirectUrl?: string;
 }
 
 /** Dois botões lado a lado (Shopee x Mercado Livre) com selo "Mais barato" no menor preço. */
-export default function PriceCompare({ slug, origin, shopeePrice, mlPrice, size = "card" }: PriceCompareProps) {
+export default function PriceCompare({
+  slug,
+  origin,
+  shopeePrice,
+  mlPrice,
+  size = "card",
+  shopeeDirectUrl,
+  mlDirectUrl,
+}: PriceCompareProps) {
   const shopeeCheaper = shopeePrice <= mlPrice;
   const diff = Math.abs(shopeePrice - mlPrice);
   const pct = Math.round((diff / Math.max(shopeePrice, mlPrice)) * 100);
 
+  const shopeeHref = shopeeDirectUrl || `/go/${slug}?origin=${origin}`;
+  const mlHref = mlDirectUrl || `/go-ml/${slug}?origin=${origin}`;
+
   return (
     <div className={`price-compare ${size === "large" ? "price-compare-lg" : ""}`}>
       <a
-        href={`/go/${slug}?origin=${origin}`}
+        href={shopeeHref}
         target="_blank"
         rel="noopener noreferrer"
         className={`pc-option pc-shopee ${shopeeCheaper ? "pc-best" : ""}`}
@@ -28,7 +41,7 @@ export default function PriceCompare({ slug, origin, shopeePrice, mlPrice, size 
         <span className="pc-price">R$ {formatBRLValue(shopeePrice)}</span>
       </a>
       <a
-        href={`/go-ml/${slug}?origin=${origin}`}
+        href={mlHref}
         target="_blank"
         rel="noopener noreferrer"
         className={`pc-option pc-ml ${!shopeeCheaper ? "pc-best" : ""}`}
