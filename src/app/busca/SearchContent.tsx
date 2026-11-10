@@ -264,12 +264,16 @@ export default function SearchContent() {
                     {item.mlPrice && item.mlLink && item.price > 0 ? (
                       <div style={{ marginTop: "auto", paddingTop: "0.5rem" }}>
                         <PriceCompare
-                          slug={item.slug || item.itemId}
+                          slug={item.slug || encodeURIComponent(item.name)}
                           origin="search"
                           shopeePrice={item.price}
                           mlPrice={item.mlPrice}
                           shopeeDirectUrl={item.affiliateLink || undefined}
-                          mlDirectUrl={item.mlLink || undefined}
+                          mlDirectUrl={
+                            item.mlLink && (item.mlLink.includes("/p/MLB") || item.mlLink.includes("produto.mercadolivre.com.br"))
+                              ? item.mlLink
+                              : undefined
+                          }
                         />
                       </div>
                     ) : (

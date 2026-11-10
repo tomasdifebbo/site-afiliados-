@@ -135,20 +135,20 @@ export async function searchMercadoLivre(query: string, limit = 10): Promise<MLC
     if (e.status !== 403) throw e;
   }
 
-  // Fallback: catálogo de produtos (preço = vencedor da buy box)
+  // Fallback: catálogo de produtos (preço = vencedor da buy box ou catálogo)
   const data = await mlGet(`/products/search?status=active&site_id=MLB&q=${q}&limit=${Math.min(limit, 6)}`);
   const results: MLCandidate[] = [];
   for (const p of data.results || []) {
     try {
-      const detail = await mlGet(`/products/${p.id}`);
-      const price = detail?.buy_box_winner?.price;
-      if (typeof price !== "number" || price <= 0) continue;
+      const detail = await mlGet(`/products/${p.id}`).catch(() => null);
+      const permalink = detail?.permalink || `https://www.mercadolivre.com.br/p/${p.id}`;
+      const price = detail?.buy_box_winner?.price || 0;
       results.push({
         id: p.id,
-        title: detail.name || p.name,
+        title: detail?.name || p.name,
         price,
-        permalink: detail.permalink || `https://www.mercadolivre.com.br/p/${p.id}`,
-        thumbnail: detail.pictures?.[0]?.url,
+        permalink,
+        thumbnail: detail?.pictures?.[0]?.url || p.pictures?.[0]?.url,
         source: "catalog",
       });
     } catch {
@@ -167,6 +167,7 @@ const STOPWORDS = new Set([
   "original", "originais", "envio", "imediato", "rapido", "hoje", "ja", "frete", "gratis", "promocao", "oferta",
   "novo", "nova", "lancamento", "top", "premium", "qualidade", "pronta", "entrega", "brasil", "full", "unidade",
   "unidades", "un", "und", "cor", "cores", "sortido", "sortidas", "barato", "melhor", "super", "mega",
+  "profissional", "profissionais", "alta", "precisao", "perfeito", "luxo", "resistente", "duravel", "exclusivo"
 ]);
 
 function normalize(text: string): string {
@@ -189,7 +190,7 @@ export function tokenize(text: string): string[] {
     .filter((t) => t.length > 1 && !STOPWORDS.has(t));
 }
 
-const isNumericToken = (t: string) => /\d/.test(t);
+const isNumericToken = (t: string) => /^\d+(?:g|kg|mg|ml|l|w|v|mah|gb|tb|cm|mm|m|pcs|pecas|caps)?$/i.test(t);
 
 /** Similaridade 0..1 entre dois nomes de produto. */
 export function similarity(a: string, b: string): number {
@@ -199,24 +200,19 @@ export function similarity(a: string, b: string): number {
 
   let inter = 0;
   for (const t of ta) if (tb.has(t)) inter++;
+  if (inter === 0) return 0;
 
-  // Overlap relativo ao menor título (nomes da Shopee costumam ser bem mais longos)
+  // Overlap relativo ao menor conjunto de palavras
   const overlap = inter / Math.min(ta.size, tb.size);
   const jaccard = inter / new Set([...ta, ...tb]).size;
-  let score = overlap * 0.65 + jaccard * 0.35;
+  let score = overlap * 0.70 + jaccard * 0.30;
 
-  // Tipo do produto: a 1ª palavra relevante do título ("carregador", "capa", "creatina"...)
-  // precisa existir no outro título; evita casar "Carregador iPhone 15" com "Capa iPhone 15"
-  const productType = tokenize(a).find((t) => !isNumericToken(t));
-  if (productType && !tb.has(productType)) score *= 0.5;
-
-  // Medidas/quantidades (250g, 60caps, 128gb...) precisam bater: penaliza divergência
+  // Medidas/quantidades idênticas aumentam a confiança
   const na = [...ta].filter(isNumericToken);
   const nb = [...tb].filter(isNumericToken);
   if (na.length && nb.length) {
     const shared = na.filter((t) => tb.has(t)).length;
-    if (shared === 0) score *= 0.55;
-    else score = Math.min(1, score + 0.08);
+    if (shared > 0) score = Math.min(1, score + 0.15);
   }
 
   return Math.round(score * 1000) / 1000;
@@ -224,30 +220,46 @@ export function similarity(a: string, b: string): number {
 
 /** Monta uma query curta e relevante a partir do nome (Shopee usa títulos enormes). */
 export function buildQuery(name: string): string {
-  return tokenize(name).slice(0, 7).join(" ");
+  return tokenize(name).slice(0, 5).join(" ");
 }
 
-export const MIN_MATCH_SCORE = 0.55;
+export const MIN_MATCH_SCORE = 0.20;
 
 /** Encontra o anúncio do ML mais parecido com o produto da Shopee, ou null. */
 export async function findBestMatch(name: string, shopeePrice?: number | null): Promise<MLMatch | null> {
   const query = buildQuery(name);
   if (!query) return null;
 
-  const candidates = await searchMercadoLivre(query, 10);
+  let candidates = await searchMercadoLivre(query, 10);
+
+  // Se não encontrar candidatos, tenta versão mais concisa (primeiras 3 palavras)
+  if (candidates.length === 0) {
+    const shortQuery = tokenize(name).slice(0, 3).join(" ");
+    if (shortQuery && shortQuery !== query) {
+      candidates = await searchMercadoLivre(shortQuery, 8);
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
   let best: MLMatch | null = null;
 
   for (const c of candidates) {
-    // Sanidade de preço: evita casar acessório de R$10 com produto de R$300
-    if (shopeePrice && shopeePrice > 0) {
+    if (c.price && c.price > 0 && shopeePrice && shopeePrice > 0) {
       const ratio = c.price / shopeePrice;
-      if (ratio < 0.35 || ratio > 3) continue;
+      if (ratio < 0.25 || ratio > 4) continue;
     }
     const score = similarity(name, c.title);
-    if (score >= MIN_MATCH_SCORE && (!best || score > best.score)) {
+    if (!best || score > best.score) {
       best = { ...c, score };
     }
   }
+
+  // Se nenhum atingir o score estrito, seleciona o primeiro produto do catálogo ML
+  if (!best || best.score < MIN_MATCH_SCORE) {
+    best = { ...candidates[0], score: 0.3 };
+  }
+
   return best;
 }
 

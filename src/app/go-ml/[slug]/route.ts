@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { buildMercadoLivreAffiliateUrl } from "@/lib/mercadolivre";
+import { buildMercadoLivreAffiliateUrl, findBestMatch } from "@/lib/mercadolivre";
 
 /** Redireciona para o anúncio equivalente no Mercado Livre (com link de afiliado) e registra o clique. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   let product = await prisma.product.findUnique({
     where: { slug },
-    select: { id: true, name: true, mlLink: true, mlAffiliateLink: true },
+    select: { id: true, name: true, price: true, mlLink: true, mlAffiliateLink: true },
   });
 
   if (!product) {
@@ -20,17 +20,45 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             { slug: decodedSlug },
             { itemId: slug },
             { id: slug },
+            { name: { contains: decodedSlug } },
           ],
         },
-        select: { id: true, name: true, mlLink: true, mlAffiliateLink: true },
+        select: { id: true, name: true, price: true, mlLink: true, mlAffiliateLink: true },
       });
     } catch {}
   }
 
-  // Se mesmo assim não encontrar registro no banco, monta a busca do ML direto com o slug
   let targetUrl = product?.mlAffiliateLink || product?.mlLink;
+  const isDirectProduct = Boolean(
+    targetUrl && (targetUrl.includes("/p/MLB") || targetUrl.includes("produto.mercadolivre.com.br"))
+  );
+
+  // Se não temos o link direto do produto (ou se ainda apontava para busca lista.mercadolivre),
+  // localiza automaticamente a página do produto no catálogo do Mercado Livre
+  if (!isDirectProduct) {
+    const searchName = product?.name || decodeURIComponent(slug).replace(/[-_]+/g, " ").trim();
+    try {
+      const match = await findBestMatch(searchName, product?.price);
+      if (match?.permalink) {
+        targetUrl = match.permalink;
+        // Grava no banco para que futuros acessos ao mesmo produto sejam instantâneos
+        if (product) {
+          prisma.product
+            .update({
+              where: { id: product.id },
+              data: { mlLink: targetUrl, mlItemId: match.id, mlTitle: match.title },
+            })
+            .catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao buscar produto direto no ML:", e);
+    }
+  }
+
+  // Fallback caso a API não localize nenhum produto equivalente no catálogo
   if (!targetUrl) {
-    const cleanQuery = slug
+    const cleanQuery = (product?.name || slug)
       .replace(/^(kit \d+x?|par de|jogo de|mini|super)\s+/i, "")
       .replace(/[-_]+/g, " ")
       .trim();
