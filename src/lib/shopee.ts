@@ -97,8 +97,8 @@ export interface SearchOffersResult {
 }
 
 const OFFER_FIELDS = `
-  itemId shopId productName price priceMin priceMax imageUrl productLink offerLink
-  commissionRate commission sales ratingStar priceDiscountRate shopName
+  itemId shopId productName price priceMax imageUrl productLink offerLink
+  sales ratingStar priceDiscountRate shopName
 `;
 
 export async function searchProductOffers(params: SearchOffersParams): Promise<SearchOffersResult> {
@@ -110,18 +110,43 @@ export async function searchProductOffers(params: SearchOffersParams): Promise<S
       }
     }
   `;
-  const variables: Record<string, unknown> = {
-    sortType: params.sortType ?? 2,
-    page: Math.max(1, params.page ?? 1),
-    limit: Math.min(50, Math.max(1, params.limit ?? 20)),
-  };
-  if (params.keyword?.trim()) variables.keyword = params.keyword.trim();
-  if (params.productCatId) variables.productCatId = params.productCatId;
-  if (params.itemId !== undefined && params.itemId !== null) variables.itemId = String(params.itemId);
-  if (params.shopId !== undefined && params.shopId !== null) variables.shopId = String(params.shopId);
 
-  const data = await shopeeGraphQL<{ productOfferV2: SearchOffersResult }>(query, variables);
-  return data.productOfferV2;
+  const kw = params.keyword?.trim() || "";
+  const candidates = [kw];
+  if (kw.endsWith('s') && kw.length > 3) candidates.push(kw.slice(0, -1));
+  else if (kw && kw.length > 3) candidates.push(kw + 's');
+
+  let lastError: any = null;
+
+  for (const term of candidates) {
+    for (const sortType of [params.sortType ?? 2, 1, undefined]) {
+      try {
+        const variables: Record<string, unknown> = {
+          page: Math.max(1, params.page ?? 1),
+          limit: Math.min(50, Math.max(1, params.limit ?? 20)),
+        };
+        if (sortType !== undefined) variables.sortType = sortType;
+        if (term) variables.keyword = term;
+        if (params.productCatId) variables.productCatId = params.productCatId;
+        if (params.itemId !== undefined && params.itemId !== null) variables.itemId = String(params.itemId);
+        if (params.shopId !== undefined && params.shopId !== null) variables.shopId = String(params.shopId);
+
+        const data = await shopeeGraphQL<{ productOfferV2: SearchOffersResult }>(query, variables);
+        if (data?.productOfferV2?.nodes?.length) {
+          return data.productOfferV2;
+        }
+        // Se retornou vazio sem erro, guarda para fallback
+        if (data?.productOfferV2) {
+          return data.productOfferV2;
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+  }
+
+  if (lastError) throw lastError;
+  return { nodes: [], pageInfo: { page: 1, limit: params.limit ?? 20, hasNextPage: false } };
 }
 
 /** Fetches fresh data for a specific Shopee product by its itemId. Returns null if not found. */
