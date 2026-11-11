@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { buildMercadoLivreAffiliateUrl, findBestMatch } from "@/lib/mercadolivre";
+import { buildMercadoLivreAffiliateUrl } from "@/lib/mercadolivre";
+import { resolveMercadoLivreWithAI } from "@/lib/mercadolivreAI";
 
 /** Redireciona para o anúncio equivalente no Mercado Livre (com link de afiliado) e registra o clique. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -33,30 +34,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     targetUrl && (targetUrl.includes("/p/MLB") || targetUrl.includes("produto.mercadolivre.com.br"))
   );
 
-  // Se não temos o link direto do produto (ou se ainda apontava para busca lista.mercadolivre),
-  // localiza automaticamente a página do produto no catálogo do Mercado Livre
+  // Se não temos o link direto auditado do produto (ou se ainda apontava para lista genérica),
+  // executa a Análise com IA Gemini para identificar o produto real e casar com precisão cirúrgica
   if (!isDirectProduct) {
     const searchName = product?.name || decodeURIComponent(slug).replace(/[-_]+/g, " ").trim();
     try {
-      const match = await findBestMatch(searchName, product?.price);
-      if (match?.permalink) {
-        targetUrl = match.permalink;
-        // Grava no banco para que futuros acessos ao mesmo produto sejam instantâneos
-        if (product) {
+      const aiResult = await resolveMercadoLivreWithAI(searchName, product?.price);
+      if (aiResult?.url) {
+        targetUrl = aiResult.url;
+        // Se a IA encontrou o produto direto exato, grava no banco para cliques futuros instantâneos
+        if (product && aiResult.type === "direct_product") {
           prisma.product
             .update({
               where: { id: product.id },
-              data: { mlLink: targetUrl, mlItemId: match.id, mlTitle: match.title },
+              data: {
+                mlLink: aiResult.url,
+                mlItemId: aiResult.matchedId,
+                mlTitle: aiResult.matchedTitle,
+              },
             })
             .catch(() => {});
         }
       }
     } catch (e) {
-      console.warn("Erro ao buscar produto direto no ML:", e);
+      console.warn("Erro ao buscar produto com IA no ML:", e);
     }
   }
 
-  // Fallback caso a API não localize nenhum produto equivalente no catálogo
+  // Fallback seguro caso tudo falhe
   if (!targetUrl) {
     const cleanQuery = (product?.name || slug)
       .replace(/^(kit \d+x?|par de|jogo de|mini|super)\s+/i, "")
