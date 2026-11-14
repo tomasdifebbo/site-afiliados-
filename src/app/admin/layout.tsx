@@ -37,7 +37,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <SidebarLink href="/admin/youtube" icon={<Video size={20} />} label="Canal YouTube" />
         </nav>
         
-        <div style={{ marginTop: 'auto', padding: '1.5rem 1rem 0', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+        <div style={{ marginTop: 'auto', padding: '1rem 0.5rem 0', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#16a34a', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px', marginBottom: '10px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#16a34a', display: 'inline-block' }}></span>
+            <span>Servidor Ativo (Porta 3000)</span>
+          </div>
           <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', color: '#666', fontWeight: 600 }}>
             <ChevronLeft size={16} /> Voltar ao Site
           </a>
