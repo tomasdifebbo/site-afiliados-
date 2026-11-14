@@ -23,6 +23,17 @@ interface LiveShopeeProduct {
   shopName: string;
 }
 
+function toSafeUrlSlug(text: string, fallbackId?: string): string {
+  const clean = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return clean || fallbackId || "produto";
+}
+
 export default function SearchContent() {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
@@ -264,10 +275,11 @@ export default function SearchContent() {
                     {item.mlPrice && item.mlLink && item.price > 0 ? (
                       <div style={{ marginTop: "auto", paddingTop: "0.5rem" }}>
                         <PriceCompare
-                          slug={item.slug || encodeURIComponent(item.name)}
+                          slug={item.slug || toSafeUrlSlug(item.name, item.itemId || item.id)}
                           origin="search"
                           shopeePrice={item.price}
                           mlPrice={item.mlPrice}
+                          productName={item.name}
                           shopeeDirectUrl={item.affiliateLink || undefined}
                           mlDirectUrl={
                             item.mlLink && (item.mlLink.includes("/p/MLB") || item.mlLink.includes("produto.mercadolivre.com.br"))

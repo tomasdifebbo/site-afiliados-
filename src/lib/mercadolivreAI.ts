@@ -1,11 +1,7 @@
-/**
- * 🧠 ANALISADOR DE PRODUTOS E CASAMENTO INTELIGENTE (Shopee x Mercado Livre)
- * Utiliza IA Google Gemini para entender o que o produto realmente é (corrigindo traduções
- * automáticas confusas como "prego" no lugar de "unha"), formular a busca ideal no Mercado Livre
- * e validar rigorosamente se o produto encontrado é idêntico para evitar redirecionamento errado.
- */
-
-import { searchMercadoLivre } from "./mercadolivre";
+import {
+  MLCandidate,
+  searchMercadoLivreCatalog,
+} from "./mercadolivre";
 
 export interface MLSmartMatchResult {
   url: string;
@@ -15,174 +11,222 @@ export interface MLSmartMatchResult {
   reason?: string;
 }
 
+interface GeminiAnalysis {
+  cleanSearchQuery: string;
+  searchTerms: string[];
+  essentialKeywords: string[];
+  category: string;
+}
+
+interface GeminiMatchPick {
+  bestId: string | null;
+  confidence: number;
+  reason: string;
+}
+
+const GEMINI_MODELS: Array<{ model: string; noThink: boolean }> = [
+  { model: "gemini-3.1-flash-lite", noThink: true },
+  { model: "gemini-3-flash-preview", noThink: true },
+  { model: "gemini-2.5-flash", noThink: true },
+  { model: "gemini-3.5-flash-lite", noThink: false },
+];
+
+const aiMatchCache = new Map<string, { result: MLSmartMatchResult; expiresAt: number }>();
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+function sanitizeQueryFallback(productName: string): string {
+  return productName
+    .replace(/[/\\|()[\]{}]+/g, " ")
+    .replace(/^(kit \d+x?|par de|jogo de|mini|super|profissional)\s+/i, "")
+    .replace(/\b(envio imediato|pronta entrega|original|promoção|promocao|oferta|alta precisão|alta precisao|prego)\b/gi, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildMlCleanSearchUrl(query: string): string {
+  const clean = query
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const slug = (clean || "ofertas").split(" ").slice(0, 6).join("-").toLowerCase();
+  return `https://lista.mercadolivre.com.br/${encodeURIComponent(slug)}`;
+}
+
+async function callGeminiJson<T>(apiKey: string, prompt: string, timeoutMs = 3500): Promise<T | null> {
+  for (const { model, noThink } of GEMINI_MODELS) {
+    try {
+      const generationConfig: Record<string, unknown> = {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      };
+      if (noThink) {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(timeoutMs),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        // Retry with fallback model on overload/rate/unsupported errors
+        continue;
+      }
+
+      const data = await res.json();
+      const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (!rawText) continue;
+
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]) as T;
+      }
+    } catch {
+      // Timeout or parse failure — try next model
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve o melhor destino no Mercado Livre usando análise semântica com Gemini + catálogo oficial ML.
+ * Projeta latência total <= ~3-5s para evitar timeout serverless e rejeita categorias incompatíveis.
+ */
 export async function resolveMercadoLivreWithAI(
   productName: string,
-  price?: number | null
+  shopeePrice?: number | null
 ): Promise<MLSmartMatchResult> {
+  const startedAt = Date.now();
+  const DEADLINE_MS = 7500;
+  const cacheKey = `${productName.trim().toLowerCase()}::${shopeePrice ?? ""}`;
+  const cached = aiMatchCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.result;
+  }
+
+  const fallbackQuery = sanitizeQueryFallback(productName) || productName.trim();
   const apiKey = process.env.GEMINI_API_KEY;
 
-  // Se não houver chave Gemini, cai na busca sanitizada direta
   if (!apiKey) {
-    const cleanQuery = productName
-      .replace(/^(kit \d+x?|par de|jogo de|mini|super)\s+/i, "")
-      .replace(/[-_]+/g, " ")
-      .trim();
     return {
-      url: `https://lista.mercadolivre.com.br/${encodeURIComponent(cleanQuery)}`,
+      url: buildMlCleanSearchUrl(fallbackQuery),
       type: "clean_search",
+      reason: "Sem GEMINI_API_KEY configurada",
     };
   }
 
-  try {
-    // ── PASSO 1: O Gemini analisa o produto e descobre o que ele realmente é ───────────
-    const analysisPrompt = `Você é um especialista em catálogo de e-commerce brasileiro (Shopee e Mercado Livre).
-Analise este produto da Shopee (que frequentemente contém títulos com tradução automática literal ou termos confusos como "prego" no lugar de "unha", "xxf", "alta precisão"):
-Título original: "${productName}"
-${price ? `Preço de referência: R$ ${price.toFixed(2)}` : ""}
+  // Etapa 1: Análise semântica e termos de busca otimizados
+  const analysisPrompt = `Analise este título de produto da Shopee (às vezes traduzido errado do inglês/chinês, ex: "prego" = unha/nail):
+"${productName}"
 
-Sua missão:
-1. "realProduct": O nome real do item em português do Brasil correto e claro.
-2. "searchTerms": Array com os 2 ou 3 melhores termos curtos e exatos de busca para o Mercado Livre (ex: ["broca tungstenio unhas", "broca lixadeira unha"]).
+Tarefa:
+1. Identifique exatamente o que é o produto, seu uso/domínio real e material/especificação principal.
+2. Crie "cleanSearchQuery": 3 a 5 palavras claras em português que um comprador digitaria no Mercado Livre (sem códigos aleatórios nem adjetivos de marketing como "profissional", "alta precisão").
+3. Crie "searchTerms": lista de 2 a 3 termos curtos (2 a 4 palavras cada) para buscar no catálogo do Mercado Livre, mantendo SEMPRE o domínio correto (ex: inclua "unha" ou "manicure" para broca/fresa de unha, para nunca confundir com broca de madeira/parede; inclua material como "tungstenio" se aplicável).
+4. Liste "essentialKeywords" (2 a 4 palavras-chave do produto real) e "category" (domínio curto).
 
-Responda ESTRITAMENTE em formato JSON:
-{
-  "realProduct": "...",
-  "searchTerms": ["...", "..."]
-}`;
+Retorne APENAS JSON:
+{"cleanSearchQuery":"...","searchTerms":["termo 1","termo 2","termo 3"],"essentialKeywords":["k1","k2"],"category":"..."}`;
 
-    const geminiRes1 = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: analysisPrompt }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
+  const analysis = await callGeminiJson<GeminiAnalysis>(apiKey, analysisPrompt, 3500);
+  const cleanSearchQuery = analysis?.cleanSearchQuery?.trim() || fallbackQuery;
+  const searchTerms = (analysis?.searchTerms?.length ? analysis.searchTerms : [cleanSearchQuery])
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2)
+    .slice(0, 3);
+
+  // Etapa 2: Busca paralela no catálogo ML sem tentar /sites/MLB/search (evita 403 e latência extra)
+  const searchGroups = await Promise.all(
+    searchTerms.map((term) => searchMercadoLivreCatalog(term, 6, false).catch(() => [] as MLCandidate[]))
+  );
+
+  const uniqueMap = new Map<string, MLCandidate>();
+  for (const list of searchGroups) {
+    for (const item of list) {
+      if (item.id && !uniqueMap.has(item.id)) {
+        uniqueMap.set(item.id, item);
       }
-    );
-
-    if (!geminiRes1.ok) {
-      throw new Error(`Gemini status ${geminiRes1.status}`);
     }
+  }
 
-    const data1 = await geminiRes1.json();
-    const rawAnalysis = data1.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawAnalysis) throw new Error("Resposta vazia do Gemini");
+  const candidates = Array.from(uniqueMap.values()).slice(0, 10);
 
-    const analysis = JSON.parse(rawAnalysis) as { realProduct: string; searchTerms: string[] };
-    const searchTerms = analysis.searchTerms?.filter(Boolean) || [analysis.realProduct];
+  if (candidates.length === 0) {
+    const res: MLSmartMatchResult = {
+      url: buildMlCleanSearchUrl(cleanSearchQuery),
+      type: "clean_search",
+      reason: "Nenhum candidato retornado no catálogo ML",
+    };
+    aiMatchCache.set(cacheKey, { result: res, expiresAt: Date.now() + CACHE_TTL_MS });
+    return res;
+  }
 
-    // ── PASSO 2: Busca candidatos no catálogo do Mercado Livre com os termos otimizados ──
-    const allCandidates: any[] = [];
-    for (const term of searchTerms) {
-      try {
-        const found = await searchMercadoLivre(term, 4);
-        if (found?.length) allCandidates.push(...found);
-      } catch {}
-    }
+  // Etapa 3: Verificação semântica e escolha do candidato exato
+  const remainingMs = DEADLINE_MS - (Date.now() - startedAt);
+  if (remainingMs < 1800) {
+    const res: MLSmartMatchResult = {
+      url: buildMlCleanSearchUrl(cleanSearchQuery),
+      type: "clean_search",
+      reason: "Tempo limite atingido antes da verificação final",
+    };
+    return res;
+  }
 
-    // Desduplica candidatos por ID
-    const uniqueCandidates = Array.from(
-      new Map(allCandidates.map((c) => [c.id, c])).values()
-    ).slice(0, 5);
+  const formattedCandidates = candidates
+    .map((c) => `- ID: ${c.id} | Título: ${c.title} | ${c.price > 0 ? `Preço: R$ ${c.price.toFixed(2)}` : "Preço: n/d"}`)
+    .join("\n");
 
-    // Se nenhum candidato de catálogo foi retornado, usa a busca limpa do termo oficial
-    if (uniqueCandidates.length === 0) {
-      const bestSearch = searchTerms[0] || analysis.realProduct;
-      const slug = bestSearch
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-      return {
-        url: `https://lista.mercadolivre.com.br/${slug}`,
-        type: "clean_search",
-        reason: "Sem catálogo direto, gerada busca com termo limpo",
+  const matchPrompt = `Compare o produto original da Shopee com os candidatos do Mercado Livre.
+
+Produto Shopee: "${productName}"
+Categoria/Uso esperado: "${analysis?.category || cleanSearchQuery}"
+Palavras essenciais: ${JSON.stringify(analysis?.essentialKeywords || [])}
+${shopeePrice ? `Preço na Shopee: R$ ${shopeePrice.toFixed(2)}` : ""}
+
+Candidatos no Mercado Livre:
+${formattedCandidates}
+
+Regras rigorosas:
+1. Escolha um candidato APENAS se for o MESMO tipo de produto e MESMA finalidade/domínio (ex: broca/fresa de manicure NÃO pode casar com broca de madeira/concreto/parede; aparelho principal NÃO pode casar com refil/acessório avulso se o preço for incompatível).
+2. Diferenças pequenas de marca genérica ou cor são aceitáveis SE for exatamente o mesmo produto/kit equivalente.
+3. Se nenhum candidato corresponder com segurança, retorne "bestId": null e "confidence": 0.
+
+Retorne APENAS JSON:
+{"bestId":"MLB... ou null","confidence":0.0,"reason":"breve justificativa"}`;
+
+  const pick = await callGeminiJson<GeminiMatchPick>(apiKey, matchPrompt, Math.min(3500, remainingMs));
+
+  if (pick?.bestId && (pick.confidence ?? 0) >= 0.72) {
+    const chosen = candidates.find((c) => c.id === pick.bestId);
+    if (chosen?.permalink) {
+      const res: MLSmartMatchResult = {
+        url: chosen.permalink,
+        type: "direct_product",
+        matchedId: chosen.id,
+        matchedTitle: chosen.title,
+        reason: pick.reason,
       };
+      aiMatchCache.set(cacheKey, { result: res, expiresAt: Date.now() + CACHE_TTL_MS });
+      return res;
     }
-
-    // ── PASSO 3: O Gemini audita os candidatos e aprova somente se for o MESMO produto ─
-    const verifyPrompt = `Produto Original Shopee: "${productName}" (Identificado como: "${analysis.realProduct}")
-
-Candidatos encontrados no Mercado Livre:
-${uniqueCandidates.map((c, i) => `${i + 1}. ID: "${c.id}" - Título: "${c.title}"`).join("\n")}
-
-Sua missão de auditoria:
-Avalie com rigor se algum dos candidatos é exatamente o MESMO tipo de produto (ou equivalente direto fiel).
-REGRAS CRÍTICAS DE SEGURANÇA:
-- Se os candidatos forem de outra utilidade (ex: broca de madeira/CNC quando o produto é de manicure/unha, ou lixas de refil quando é a broca), NÃO aprove!
-- Só escolha se você tiver certeza de que o visitante vai receber exatamente o produto que procurava.
-
-Responda ESTRITAMENTE em formato JSON:
-{
-  "bestMatchId": "ID do candidato aprovado ou null se nenhum for o produto correto",
-  "reason": "breve explicação",
-  "confidence": "high" | "medium" | "low"
-}`;
-
-    const geminiRes2 = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: verifyPrompt }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
-      }
-    );
-
-    if (geminiRes2.ok) {
-      const data2 = await geminiRes2.json();
-      const rawVerify = data2.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawVerify) {
-        const verification = JSON.parse(rawVerify) as {
-          bestMatchId?: string | null;
-          reason?: string;
-          confidence?: string;
-        };
-
-        if (verification.bestMatchId) {
-          const winner = uniqueCandidates.find((c) => c.id === verification.bestMatchId);
-          if (winner) {
-            return {
-              url: `https://www.mercadolivre.com.br/p/${winner.id}`,
-              type: "direct_product",
-              matchedId: winner.id,
-              matchedTitle: winner.title,
-              reason: verification.reason,
-            };
-          }
-        }
-      }
-    }
-
-    // Se a auditoria do Gemini rejeitou os candidatos por incompatibilidade:
-    // Redireciona para a pesquisa do Mercado Livre com o termo LIMPO E PRECISO fornecido pelo Gemini!
-    const bestSearch = searchTerms[0] || analysis.realProduct;
-    const cleanSlug = bestSearch
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    return {
-      url: `https://lista.mercadolivre.com.br/${cleanSlug}`,
-      type: "clean_search",
-      reason: "Auditoria rejeitou candidatos incompatíveis, busca limpa acionada",
-    };
-  } catch (err: any) {
-    console.warn("[ML AI Matcher] Falha na análise inteligente:", err.message);
-    const cleanQuery = productName
-      .replace(/^(kit \d+x?|par de|jogo de|mini|super)\s+/i, "")
-      .replace(/[-_]+/g, " ")
-      .trim();
-    return {
-      url: `https://lista.mercadolivre.com.br/${encodeURIComponent(cleanQuery)}`,
-      type: "clean_search",
-    };
   }
+
+  const res: MLSmartMatchResult = {
+    url: buildMlCleanSearchUrl(cleanSearchQuery),
+    type: "clean_search",
+    reason: pick?.reason || "Nenhum candidato passou na verificação de compatibilidade",
+  };
+  aiMatchCache.set(cacheKey, { result: res, expiresAt: Date.now() + CACHE_TTL_MS });
+  return res;
 }

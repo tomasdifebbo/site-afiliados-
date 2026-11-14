@@ -8,6 +8,7 @@ interface PriceCompareProps {
   size?: "card" | "large";
   shopeeDirectUrl?: string;
   mlDirectUrl?: string;
+  productName?: string;
 }
 
 /** Dois botões lado a lado (Shopee x Mercado Livre) com selo "Mais barato" no menor preço. */
@@ -19,13 +20,16 @@ export default function PriceCompare({
   size = "card",
   shopeeDirectUrl,
   mlDirectUrl,
+  productName,
 }: PriceCompareProps) {
   const shopeeCheaper = shopeePrice <= mlPrice;
   const diff = Math.abs(shopeePrice - mlPrice);
   const pct = Math.round((diff / Math.max(shopeePrice, mlPrice)) * 100);
 
   const shopeeHref = shopeeDirectUrl || `/go/${slug}?origin=${origin}`;
-  const mlHref = mlDirectUrl || `/go-ml/${slug}?origin=${origin}`;
+  const mlHref =
+    mlDirectUrl ||
+    `/go-ml/${slug}?origin=${origin}${productName ? `&q=${encodeURIComponent(productName)}` : ""}`;
 
   return (
     <div className={`price-compare ${size === "large" ? "price-compare-lg" : ""}`}>

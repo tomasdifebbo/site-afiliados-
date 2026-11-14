@@ -117,45 +117,62 @@ async function mlGet(path: string): Promise<any> {
 // ---------------------------------------------------------------------------
 
 /** Busca anúncios. Usa /sites/MLB/search e, se bloqueado (403), cai para a busca de catálogo. */
+let siteSearchForbiddenUntil = 0;
+
+export async function hydrateMercadoLivreCatalogCandidates(candidates: MLCandidate[]): Promise<MLCandidate[]> {
+  return Promise.all(
+    candidates.map(async (c) => {
+      const detail = await mlGet(`/products/${c.id}`).catch(() => null);
+      if (!detail) return c;
+      return {
+        ...c,
+        title: detail.name || c.title,
+        price: detail.buy_box_winner?.price || c.price || 0,
+        permalink: detail.permalink || c.permalink,
+        thumbnail: detail.pictures?.[0]?.url || c.thumbnail,
+      };
+    })
+  );
+}
+
+/** Pesquisa apenas no catálogo oficial ML sem tentar /sites/MLB/search */
+export async function searchMercadoLivreCatalog(query: string, limit = 6, withDetails = false): Promise<MLCandidate[]> {
+  const q = encodeURIComponent(query);
+  const data = await mlGet(`/products/search?status=active&site_id=MLB&q=${q}&limit=${Math.min(limit, 8)}`);
+  const items = ((data.results || []) as any[]).map((p) => ({
+    id: p.id,
+    title: p.name,
+    price: 0,
+    permalink: `https://www.mercadolivre.com.br/p/${p.id}`,
+    thumbnail: p.pictures?.[0]?.url,
+    source: "catalog" as const,
+  }));
+  return withDetails ? hydrateMercadoLivreCatalogCandidates(items) : items;
+}
+
 export async function searchMercadoLivre(query: string, limit = 10): Promise<MLCandidate[]> {
   const q = encodeURIComponent(query);
-  try {
-    const data = await mlGet(`/sites/MLB/search?q=${q}&limit=${limit}`);
-    return (data.results || [])
-      .filter((r: any) => typeof r.price === "number" && r.price > 0)
-      .map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        price: r.price,
-        permalink: r.permalink,
-        thumbnail: r.thumbnail,
-        source: "search" as const,
-      }));
-  } catch (e: any) {
-    if (e.status !== 403) throw e;
-  }
-
-  // Fallback: catálogo de produtos (preço = vencedor da buy box ou catálogo)
-  const data = await mlGet(`/products/search?status=active&site_id=MLB&q=${q}&limit=${Math.min(limit, 6)}`);
-  const results: MLCandidate[] = [];
-  for (const p of data.results || []) {
+  if (Date.now() > siteSearchForbiddenUntil) {
     try {
-      const detail = await mlGet(`/products/${p.id}`).catch(() => null);
-      const permalink = detail?.permalink || `https://www.mercadolivre.com.br/p/${p.id}`;
-      const price = detail?.buy_box_winner?.price || 0;
-      results.push({
-        id: p.id,
-        title: detail?.name || p.name,
-        price,
-        permalink,
-        thumbnail: detail?.pictures?.[0]?.url || p.pictures?.[0]?.url,
-        source: "catalog",
-      });
-    } catch {
-      // ignora produto de catálogo sem detalhe
+      const data = await mlGet(`/sites/MLB/search?q=${q}&limit=${limit}`);
+      return (data.results || [])
+        .filter((r: any) => typeof r.price === "number" && r.price > 0)
+        .map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          price: r.price,
+          permalink: r.permalink,
+          thumbnail: r.thumbnail,
+          source: "search" as const,
+        }));
+    } catch (e: any) {
+      if (e.status !== 403) throw e;
+      siteSearchForbiddenUntil = Date.now() + 10 * 60_000;
     }
   }
-  return results;
+
+  // Fallback: catálogo de produtos em paralelo (preço = vencedor da buy box ou catálogo)
+  return searchMercadoLivreCatalog(query, Math.min(limit, 6), true);
 }
 
 // ---------------------------------------------------------------------------

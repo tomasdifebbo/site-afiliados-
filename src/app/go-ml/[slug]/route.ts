@@ -37,7 +37,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Se não temos o link direto auditado do produto (ou se ainda apontava para lista genérica),
   // executa a Análise com IA Gemini para identificar o produto real e casar com precisão cirúrgica
   if (!isDirectProduct) {
-    const searchName = product?.name || decodeURIComponent(slug).replace(/[-_]+/g, " ").trim();
+    const queryName = request.nextUrl.searchParams.get("q")?.trim();
+    const searchName = product?.name || queryName || decodeURIComponent(slug).replace(/[-_]+/g, " ").trim();
     try {
       const aiResult = await resolveMercadoLivreWithAI(searchName, product?.price);
       if (aiResult?.url) {

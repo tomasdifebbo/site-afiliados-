@@ -101,6 +101,9 @@ const OFFER_FIELDS = `
   sales ratingStar priceDiscountRate shopName
 `;
 
+const offerSearchCache = new Map<string, { result: SearchOffersResult; expiresAt: number }>();
+const OFFER_CACHE_TTL_MS = 3 * 60 * 1000;
+
 export async function searchProductOffers(params: SearchOffersParams): Promise<SearchOffersResult> {
   const query = `
     query ($keyword: String, $productCatId: Int, $itemId: Int64, $shopId: Int64, $sortType: Int, $page: Int, $limit: Int) {
@@ -112,41 +115,114 @@ export async function searchProductOffers(params: SearchOffersParams): Promise<S
   `;
 
   const kw = params.keyword?.trim() || "";
-  const candidates = [kw];
-  if (kw.endsWith('s') && kw.length > 3) candidates.push(kw.slice(0, -1));
-  else if (kw && kw.length > 3) candidates.push(kw + 's');
+  const page = Math.max(1, params.page ?? 1);
+  const limit = Math.min(50, Math.max(1, params.limit ?? 20));
+  const cacheKey = JSON.stringify({
+    kw: kw.toLowerCase(),
+    productCatId: params.productCatId,
+    itemId: params.itemId,
+    shopId: params.shopId,
+    sortType: params.sortType,
+    page,
+    limit,
+  });
 
-  let lastError: any = null;
-
-  for (const term of candidates) {
-    for (const sortType of [params.sortType ?? 2, 1, undefined]) {
-      try {
-        const variables: Record<string, unknown> = {
-          page: Math.max(1, params.page ?? 1),
-          limit: Math.min(50, Math.max(1, params.limit ?? 20)),
-        };
-        if (sortType !== undefined) variables.sortType = sortType;
-        if (term) variables.keyword = term;
-        if (params.productCatId) variables.productCatId = params.productCatId;
-        if (params.itemId !== undefined && params.itemId !== null) variables.itemId = String(params.itemId);
-        if (params.shopId !== undefined && params.shopId !== null) variables.shopId = String(params.shopId);
-
-        const data = await shopeeGraphQL<{ productOfferV2: SearchOffersResult }>(query, variables);
-        if (data?.productOfferV2?.nodes?.length) {
-          return data.productOfferV2;
-        }
-        // Se retornou vazio sem erro, guarda para fallback
-        if (data?.productOfferV2) {
-          return data.productOfferV2;
-        }
-      } catch (err) {
-        lastError = err;
-      }
-    }
+  const cached = offerSearchCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.result;
   }
 
+  let emptyResult: SearchOffersResult | null = null;
+  let lastError: any = null;
+
+  const attempt = async (term: string, sortType?: number): Promise<SearchOffersResult> => {
+    const variables: Record<string, unknown> = { page, limit };
+    if (sortType !== undefined) variables.sortType = sortType;
+    if (term) variables.keyword = term;
+    if (params.productCatId) variables.productCatId = params.productCatId;
+    if (params.itemId !== undefined && params.itemId !== null) variables.itemId = String(params.itemId);
+    if (params.shopId !== undefined && params.shopId !== null) variables.shopId = String(params.shopId);
+
+    const data = await shopeeGraphQL<{ productOfferV2: SearchOffersResult }>(query, variables);
+    const result = data?.productOfferV2;
+    if (result?.nodes?.length) {
+      return result;
+    }
+    if (result && !emptyResult) {
+      emptyResult = result;
+    }
+    throw new ShopeeApiError("Sem resultados nesta tentativa");
+  };
+
+  const raceWave = async (tasks: Array<Promise<SearchOffersResult>>): Promise<SearchOffersResult | null> => {
+    try {
+      const winner = await Promise.any(tasks);
+      offerSearchCache.set(cacheKey, { result: winner, expiresAt: Date.now() + OFFER_CACHE_TTL_MS });
+      return winner;
+    } catch (agg: any) {
+      const errors = agg?.errors || [];
+      for (const e of errors) {
+        if (e && e.message !== "Sem resultados nesta tentativa") {
+          lastError = e;
+        }
+      }
+      return null;
+    }
+  };
+
+  if (params.itemId !== undefined) {
+    try {
+      const res = await attempt(kw, params.sortType);
+      offerSearchCache.set(cacheKey, { result: res, expiresAt: Date.now() + OFFER_CACHE_TTL_MS });
+      return res;
+    } catch (err) {
+      if (err instanceof Error && err.message !== "Sem resultados nesta tentativa") lastError = err;
+    }
+  } else {
+    // Ondas pequenas (máx 2 requisições por vez) para não estourar rate/burst limit da Shopee
+    const altKw =
+      kw.endsWith("s") && kw.length > 3
+        ? kw.slice(0, -1)
+        : kw && kw.length > 3
+        ? kw + "s"
+        : null;
+
+    const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const preferred = params.sortType;
+    const wave1Sorts = preferred !== undefined
+      ? [preferred, preferred === 5 ? 1 : 5]
+      : [1, 5];
+
+    // Onda 1: termo original com sort preferido (ex: 2) e fallback paralelo (5 ou 1)
+    const wave1 = await raceWave(wave1Sorts.map((s) => attempt(kw, s)));
+    if (wave1) return wave1;
+
+    await pause(200);
+
+    // Onda 2: demais sortTypes principais no termo original
+    const remainingSorts = [1, 2, 3, 5].filter((s) => !wave1Sorts.includes(s));
+    const wave2 = await raceWave(remainingSorts.slice(0, 2).map((s) => attempt(kw, s)));
+    if (wave2) return wave2;
+
+    if (altKw) {
+      await pause(200);
+      // Onda 3: variação singular/plural (ex: brocas/broca, fresa/fresas)
+      const wave3 = await raceWave([attempt(altKw, 1), attempt(altKw, 5)]);
+      if (wave3) return wave3;
+    }
+
+    await pause(250);
+
+    // Onda 4: fallback final sem sort / variação
+    const wave4 = await raceWave(
+      altKw ? [attempt(kw, undefined), attempt(altKw, 2)] : [attempt(kw, undefined), attempt(kw, 3)]
+    );
+    if (wave4) return wave4;
+  }
+
+  if (emptyResult) return emptyResult;
   if (lastError) throw lastError;
-  return { nodes: [], pageInfo: { page: 1, limit: params.limit ?? 20, hasNextPage: false } };
+  return { nodes: [], pageInfo: { page: 1, limit, hasNextPage: false } };
 }
 
 /** Fetches fresh data for a specific Shopee product by its itemId. Returns null if not found. */
